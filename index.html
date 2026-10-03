@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PrintDesk</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:16px system-ui,sans-serif;background:#f5f6f8;color:#1b2430}main{max-width:960px;margin:0 auto;padding:14px}
+.card{background:#fff;border:1px solid #e1e5ea;border-radius:12px;padding:16px;margin:12px 0}h1{font-size:22px;margin:6px 0}h2{font-size:17px;margin:0 0 10px}
+label{display:block;font-size:14px;font-weight:600;margin:10px 0 4px}input,select,textarea,button{font:inherit;width:100%;padding:12px;border:1px solid #c5ccd6;border-radius:8px;min-height:44px;background:#fff;color:inherit}
+button{background:#1f5fd6;color:#fff;border:0;font-weight:600;cursor:pointer;width:auto;padding:10px 16px}button.sec{background:#e8ecf2;color:#1b2430}button:disabled{opacity:.5}
+:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}.row>*{flex:1;min-width:120px}
+.err{color:#b42318;font-size:14px;min-height:20px}.muted{color:#5b6675;font-size:14px}.pill{background:#e8ecf2;border-radius:99px;padding:2px 10px;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;border-bottom:1px solid #e8ecf2;text-align:left}.tw{overflow-x:auto}
+.chk{display:flex;align-items:center;gap:8px;font-weight:400}.chk input{width:auto;min-height:0}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#b42318;margin-right:6px}.dot.on{background:#16a34a}
+@media print{body *{visibility:hidden}#qrcard,#qrcard *{visibility:visible}#qrcard{position:absolute;left:0;top:0;width:100%;text-align:center}}
+</style>
+</head>
+<body>
+<main id="app">Loading...</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+'use strict';
+/* ===== PrintDesk (single file, no server) =====
+   Admin opens this page normally. Customers open it via QR (?shop=ID).
+   Files travel phone -> shop computer directly (WebRTC). The shop page must be open to receive. */
+const $=s=>document.querySelector(s);
+const E=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const SHOP=new URLSearchParams(location.search).get('shop');
+const BASE=location.origin+location.pathname;
+const ALLOWED={pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'};
+const ext=n=>(n.split('.').pop()||'').toLowerCase();
+const ST={new:'New',review:'Under Review',accepted:'Accepted',payment:'Payment Pending',production:'In Production',ready:'Ready',completed:'Completed',rejected:'Rejected',cancelled:'Cancelled',hold:'On Hold'};
+const FLOW={new:['review','rejected','cancelled'],review:['accepted','rejected','cancelled','hold'],accepted:['payment','production','cancelled','hold'],payment:['production','cancelled'],production:['ready','hold'],ready:['completed'],hold:['review','accepted','production','cancelled'],completed:[],rejected:[],cancelled:[]};
+const rnd=n=>[...crypto.getRandomValues(new Uint8Array(n))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const DEF={shop_name:'My Print Shop',welcome:'Upload your documents and submit your printing requirements.',phone:'',whatsapp:'',address:'',currency:'Rs.',max_mb:'20',
+ prices:'{"bw|A4":10,"color|A4":30,"bw|A3":20,"color|A3":60,"photo|A4":80}',extras:'{"Spiral binding":0,"Lamination":0,"Stapling":0}'};
+const CFG=()=>({...DEF,...JSON.parse(localStorage.pd_cfg||'{}')});
+const money=o=>{const total=Math.max(o.subtotal-o.discount,0);return{total,balance:Math.max(total-o.paid,0),pay:o.paid<=0?'Unpaid':(o.paid>=total&&total>0?'Paid':'Partially Paid')}};
+const beep=()=>{try{const a=new AudioContext(),o=a.createOscillator();o.connect(a.destination);o.frequency.value=880;o.start();o.stop(a.currentTime+.25)}catch{}};
+addEventListener('offline',()=>alert('Connection Lost'));
+
+/* ================= CUSTOMER ================= */
+function customer(){
+  let conn,cfg,files=[],busy=false;
+  const app=$('#app');
+  const peer=new Peer();
+  const show=(h)=>app.innerHTML=h;
+  show('<div class="card">Connecting to the shop...</div>');
+  const closed=()=>show('<div class="card"><h1>Shop is currently closed</h1><p>The shop is not receiving requests right now. Please try again during shop hours.</p><button onclick="location.reload()">Retry</button></div>');
+  const timer=setTimeout(closed,12000);
+  peer.on('error',closed);
+  peer.on('open',()=>{conn=peer.connect(SHOP,{reliable:true});
+    conn.on('open',()=>conn.send({t:'hello'}));
+    conn.on('close',()=>{if(!busy)closed()});
+    conn.on('data',m=>{
+      if(m.t==='cfg'){clearTimeout(timer);cfg=m;form()}
+      if(m.t==='status'&&$('#st'))$('#st').textContent=m.ok?(ST[m.status]||m.status)+(m.total!=null?' - Total '+cfg.currency+' '+m.total+' ('+m.pay+')':''):'Order not found';
+    })});
+  function form(){
+    document.title=cfg.shop_name+' - Print Request';
+    const last=JSON.parse(localStorage['pd_last_'+SHOP]||'null');
+    show('<div class="card"><h1>'+E(cfg.shop_name)+'</h1><p class="muted">'+E(cfg.welcome)+'</p></div>'+
+    (last?'<div class="card"><b>Your last request: '+E(last.number)+'</b><p id="st" class="muted"></p><button class="sec" id="chk">Check status</button></div>':'')+
+    '<div class="card"><h2>Your details</h2><label for="n">Full name</label><input id="n" autocomplete="name"><label for="p">Mobile / WhatsApp</label><input id="p" type="tel" autocomplete="tel"><label for="e">Email (optional)</label><input id="e" type="email"></div>'+
+    '<div class="card"><h2>Files</h2><input id="f" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" aria-label="Choose files"><div id="fl"></div><p class="muted">PDF, JPG, PNG, DOC, DOCX. Max '+E(cfg.max_mb)+' MB each, up to 10 files.</p></div>'+
+    '<div class="card"><h2>Printing</h2><div class="row"><div><label for="t">Type</label><select id="t"><option value="bw">Black &amp; White</option><option value="color">Color</option><option value="photo">Photo</option><option value="other">Other</option></select></div><div><label for="s">Paper size</label><select id="s"><option>A4</option><option>A5</option><option>A3</option><option>Letter</option><option>Legal</option><option>Custom</option></select></div></div>'+
+    '<div class="row"><div><label for="d">Sides</label><select id="d"><option value="single">Single-sided</option><option value="double">Double-sided</option></select></div><div><label for="o">Orientation</label><select id="o"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></div><div><label for="c">Copies</label><input id="c" type="number" min="1" value="1" inputmode="numeric"></div></div>'+
+    (cfg.extras.length?'<label>Additional services</label>'+cfg.extras.map(x=>'<label class="chk"><input type="checkbox" class="ex" value="'+E(x)+'">'+E(x)+'</label>').join(''):'')+
+    '<label for="i">Special instructions</label><textarea id="i" rows="3"></textarea></div><div class="err" id="er" role="alert"></div><button id="go">Submit printing request</button>');
+    if(last)$('#chk').onclick=()=>{conn.send({t:'track',token:last.token})};
+    $('#f').onchange=e=>{for(const f of e.target.files){
+      if(!ALLOWED[ext(f.name)]){$('#er').textContent='This file type is not supported.';continue}
+      if(f.size>(+cfg.max_mb)*1048576){$('#er').textContent=f.name+' is too large.';continue}
+      if(files.length<10)files.push({file:f,state:'ready'})}e.target.value='';list()};
+    $('#go').onclick=submit;
+  }
+  function list(){$('#fl').innerHTML=files.map((f,i)=>'<p><b>'+E(f.file.name)+'</b> <span class="muted">'+(f.file.size/1024).toFixed(0)+' KB - '+E(f.state)+'</span> '+(busy?'':'<button class="sec" data-i="'+i+'">Remove</button>')+'</p>').join('');
+    document.querySelectorAll('#fl button').forEach(b=>b.onclick=()=>{files.splice(+b.dataset.i,1);list()})}
+  const waitFor=(type,ms=60000)=>new Promise((ok,no)=>{const t=setTimeout(()=>{conn.off('data',h);no(new Error('timeout'))},ms);const h=m=>{if(m.t===type||m.t==='reject'){clearTimeout(t);conn.off('data',h);m.t==='reject'?no(new Error(m.error)):ok(m)}};conn.on('data',h)});
+  async function submit(){
+    if(busy)return;const er=$('#er');er.textContent='';
+    const name=$('#n').value.trim(),phone=$('#p').value.replace(/[^\d+]/g,'');
+    if(!name||phone.length<7)return er.textContent='Please enter your name and a valid mobile number.';
+    if(!files.length)return er.textContent='Please add at least one file.';
+    if(!conn.open)return er.textContent='Connection lost. Your request has not been submitted.';
+    busy=true;$('#go').disabled=true;$('#go').textContent='Submitting...';list();
+    try{
+      conn.send({t:'order',count:files.length,order:{name,phone,email:$('#e').value.trim(),type:$('#t').value,size:$('#s').value,sides:$('#d').value,orient:$('#o').value,copies:$('#c').value,instructions:$('#i').value,extras:[...document.querySelectorAll('.ex:checked')].map(c=>c.value)}});
+      const ok=await waitFor('order_ok',15000);
+      for(let i=0;i<files.length;i++){files[i].state='sending...';list();
+        const buf=await files[i].file.arrayBuffer();conn.send({t:'file',token:ok.token,i,name:files[i].file.name,data:buf});
+        await waitFor('ack',120000);files[i].state='sent';list()}
+      localStorage['pd_last_'+SHOP]=JSON.stringify({number:ok.number,token:ok.token});
+      show('<div class="card"><h2>Request Submitted Successfully</h2><p>Your request number:</p><h1>'+E(ok.number)+'</h1><p class="muted">Bookmark this page to check your order status while the shop is open.</p><button onclick="location.reload()">Done</button></div>');
+    }catch(e){busy=false;$('#go').disabled=false;$('#go').textContent='Submit printing request';er.textContent=(e.message==='timeout'?'Connection lost. ':'')+(e.message&&e.message!=='timeout'?e.message+' ':'')+'Your request may not have been completed. Please try again.';list()}
+  }
+}
+
+/* ================= ADMIN ================= */
+const DB=new Promise((ok,no)=>{const r=indexedDB.open('printdesk',1);r.onupgradeneeded=()=>r.result.createObjectStore('orders',{keyPath:'id'});r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const tx=async(mode,f)=>{const d=await DB;return new Promise((ok,no)=>{const t=d.transaction('orders',mode),r=f(t.objectStore('orders'));t.oncomplete=()=>ok(r.result);t.onerror=()=>no(t.error)})};
+const allO=()=>tx('readonly',s=>s.getAll()),getO=id=>tx('readonly',s=>s.get(id)),putO=o=>tx('readwrite',s=>s.put(o));
+const log=(o,msg)=>{o.log.unshift({t:Date.now(),m:msg})};
+let view='orders',unread=0,peerOK=false;
+
+async function admin(){
+  const app=$('#app');
+  const form=(title,fields,btn,fn)=>{app.innerHTML='<div class="card" style="max-width:420px;margin:40px auto"><h1>'+title+'</h1>'+fields.map(f=>'<label for="'+f[0]+'">'+f[1]+'</label><input id="'+f[0]+'" type="'+(f[2]||'text')+'">').join('')+'<div class="err" id="er" role="alert"></div><button id="ok">'+btn+'</button></div>';
+    $('#ok').onclick=async()=>{const r=await fn(Object.fromEntries(fields.map(f=>[f[0],$('#'+f[0]).value])));if(r)$('#er').textContent=r}};
+  if(!localStorage.pd_pw)return form('Create shop password',[['shop','Shop name'],['pw','Password (8+ characters)','password']],'Create',async b=>{
+    if(b.pw.length<8||!b.shop.trim())return'Enter shop name and a password of 8+ characters.';
+    const salt=rnd(8);localStorage.pd_pw=salt+':'+await sha(salt+b.pw);localStorage.pd_cfg=JSON.stringify({shop_name:b.shop.trim()});sessionStorage.pd_in='1';admin()});
+  if(!sessionStorage.pd_in)return form('Shop login',[['pw','Password','password']],'Sign in',async b=>{
+    const [s,h]=localStorage.pd_pw.split(':');if(await sha(s+b.pw)!==h)return'Wrong password';sessionStorage.pd_in='1';admin()});
+  if(!localStorage.pd_id)localStorage.pd_id='pd-'+rnd(10);
+  startPeer();shell();go('orders');
+}
+function startPeer(){
+  const peer=new Peer(localStorage.pd_id);
+  const dot=()=>{if($('#dot'))$('#dot').innerHTML='<span class="dot'+(peerOK?' on':'')+'"></span>'+(peerOK?'Receiving requests':'Offline')};
+  peer.on('open',()=>{peerOK=true;dot()});
+  peer.on('disconnected',()=>{peerOK=false;dot();setTimeout(()=>peer.reconnect(),3000)});
+  peer.on('error',e=>{peerOK=false;dot();if(e.type==='unavailable-id')alert('PrintDesk is already open in another tab or window. Close it first.')});
+  peer.on('connection',c=>{let n=0;c.on('data',async m=>{try{
+    const cfg=CFG();
+    if(m.t==='hello')return c.send({t:'cfg',shop_name:cfg.shop_name,welcome:cfg.welcome,currency:cfg.currency,max_mb:cfg.max_mb,extras:Object.keys(JSON.parse(cfg.extras))});
+    if(m.t==='order'){
+      const d=m.order||{},name=String(d.name||'').trim().slice(0,80),phone=String(d.phone||'').replace(/[^\d+]/g,'').slice(0,16),count=+m.count;
+      if(++n>5||!name||phone.length<7||!(count>=1&&count<=10))return c.send({t:'reject',error:'Invalid request.'});
+      const pick=(v,a,df)=>a.includes(v)?v:df,day=new Date().toISOString().slice(0,10).replace(/-/g,''),k='pd_seq_'+day,seq=(+localStorage[k]||0)+1;localStorage[k]=seq;
+      const o={id:rnd(8),number:`PR-${day}-${String(seq).padStart(5,'0')}`,token:rnd(16),created:Date.now(),updated:Date.now(),status:'new',expected:count,files:[],subtotal:0,discount:0,paid:0,payments:[],log:[],
+        customer:{name,phone,email:String(d.email||'').slice(0,100)},instructions:String(d.instructions||'').slice(0,2000),
+        opts:{type:pick(d.type,['bw','color','photo','other'],'bw'),size:pick(d.size,['A4','A5','A3','Letter','Legal','Custom'],'A4'),sides:pick(d.sides,['single','double'],'single'),orient:pick(d.orient,['portrait','landscape'],'portrait'),copies:Math.min(Math.max(parseInt(d.copies)||1,1),10000),extras:(Array.isArray(d.extras)?d.extras:[]).map(String).slice(0,10)}};
+      log(o,'Request received');await putO(o);c.send({t:'order_ok',number:o.number,token:o.token});
+      unread++;beep();if('Notification'in window&&Notification.permission==='granted')new Notification('New Printing Request',{body:o.number+' - '+name+' - '+o.opts.size+' x'+o.opts.copies});
+      refresh();return}
+    if(m.t==='file'){
+      const o=(await allO()).find(x=>x.token===m.token);if(!o||o.files.length>=o.expected)return c.send({t:'reject',error:'Invalid upload.'});
+      const nm=String(m.name||'').replace(/[^\w.\- ()]/g,'_').slice(0,120),e=ext(nm);
+      if(!ALLOWED[e]||!(m.data&&m.data.byteLength)||m.data.byteLength>(+cfg.max_mb)*1048576)return c.send({t:'reject',error:'This file type is not supported.'});
+      o.files.push({name:nm,size:m.data.byteLength,added:Date.now(),blob:new Blob([m.data],{type:ALLOWED[e]})});o.updated=Date.now();await putO(o);c.send({t:'ack',i:m.i});refresh();return}
+    if(m.t==='track'){const o=(await allO()).find(x=>x.token===m.token);if(!o)return c.send({t:'status',ok:false});const mo=money(o);return c.send({t:'status',ok:true,status:o.status,total:o.subtotal>0?mo.total:null,pay:mo.pay})}
+  }catch(e){console.error(e);try{c.send({t:'reject',error:'Something went wrong.'})}catch{}}})});
+}
+function shell(){
+  const cfg=CFG();document.title=cfg.shop_name+' - Dashboard';
+  $('#app').innerHTML='<div class="row" style="align-items:center"><h1 style="flex:3">'+E(cfg.shop_name)+'</h1><span id="dot" class="muted"></span><button class="sec" id="bell">🔔 <span id="ub">0</span></button><button class="sec" id="lo">Logout</button></div><div class="row" id="nav" style="margin-top:8px"></div><div id="stats" class="row"></div><div id="v"></div>';
+  $('#nav').innerHTML=[['orders','Orders'],['qr','QR Code'],['settings','Settings']].map(t=>'<button class="sec" data-v="'+t[0]+'">'+t[1]+'</button>').join('');
+  document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+  $('#bell').onclick=()=>{unread=0;$('#ub').textContent=0;if('Notification'in window)Notification.requestPermission();go('orders')};
+  $('#lo').onclick=()=>{sessionStorage.clear();location.reload()};
+  $('#dot').innerHTML='<span class="dot'+(peerOK?' on':'')+'"></span>'+(peerOK?'Receiving requests':'Connecting...');
+}
+const go=v=>{view=v;({orders,qr,settings}[v])()};
+async function refresh(){if($('#ub'))$('#ub').textContent=unread;stats();if(view==='orders'&&!$('#detail'))orders();else if($('#detail'))detail($('#detail').dataset.id,true)}
+async function stats(){const a=await allO(),c=s=>a.filter(o=>o.status===s).length,t0=new Date().setHours(0,0,0,0),cur=CFG().currency;
+  const today=a.flatMap(o=>o.payments).filter(p=>p.t>=t0).reduce((s,p)=>s+p.amount,0);
+  $('#stats').innerHTML=[['New',c('new')],['In Production',c('production')],['Ready',c('ready')],['Orders today',a.filter(o=>o.created>=t0).length],["Today's payments",cur+' '+today],['Customers',new Set(a.map(o=>o.customer.phone)).size]].map(s=>'<div class="card"><div class="muted">'+s[0]+'</div><h1>'+E(s[1])+'</h1></div>').join('')}
+async function orders(){
+  const s=$('#s')?.value||'',q=($('#q')?.value||'').toLowerCase();
+  const list=(await allO()).sort((a,b)=>b.created-a.created).filter(o=>(!s||o.status===s)&&(o.number.toLowerCase().includes(q)||o.customer.name.toLowerCase().includes(q)||o.customer.phone.includes(q)));
+  $('#v').innerHTML='<div class="row"><input id="q" placeholder="Search order #, name, phone" value="'+E(q)+'" aria-label="Search"><select id="s" aria-label="Status"><option value="">All statuses</option>'+Object.entries(ST).map(x=>'<option value="'+x[0]+'"'+(x[0]===s?' selected':'')+'>'+x[1]+'</option>').join('')+'</select></div><div class="card tw"><table><tr><th>Order</th><th>Customer</th><th>Requirements</th><th>Amount</th><th>Payment</th><th>Status</th></tr>'+
+  (list.map(o=>{const m=money(o);return'<tr><td><a href="#" data-id="'+o.id+'">'+E(o.number)+'</a><br><span class="muted">'+new Date(o.created).toLocaleString()+'</span></td><td>'+E(o.customer.name)+'<br><span class="muted">'+E(o.customer.phone)+'</span></td><td>'+o.files.length+'/'+o.expected+' file(s), '+o.opts.size+' '+o.opts.type+', '+o.opts.copies+' copies</td><td>'+m.total+'</td><td>'+m.pay+'</td><td><span class="pill">'+ST[o.status]+'</span></td></tr>'}).join('')||'<tr><td colspan="6">No orders yet.</td></tr>')+'</table></div>';
+  stats();let t;$('#q').oninput=()=>{clearTimeout(t);t=setTimeout(orders,250)};$('#s').onchange=orders;
+  document.querySelectorAll('[data-id]').forEach(a=>a.onclick=e=>{e.preventDefault();detail(a.dataset.id)});
+}
+async function detail(id,keep){
+  const o=await getO(id);if(!o)return orders();const c=o.customer,cur=CFG().currency,m=money(o);
+  const draft=keep&&$('#sub')?{sub:$('#sub').value,dis:$('#dis').value}:null;
+  $('#v').innerHTML='<div id="detail" data-id="'+id+'"><button class="sec" id="bk">← Orders</button><div class="card"><h2>'+E(o.number)+' <span class="pill">'+ST[o.status]+'</span></h2><p>'+E(c.name)+' - '+E(c.phone)+' '+E(c.email)+'</p><p>'+o.opts.type+', '+o.opts.size+', '+o.opts.sides+', '+o.opts.orient+', '+o.opts.copies+' copies'+(o.opts.extras.length?', '+E(o.opts.extras.join(', ')):'')+'</p><p>Instructions: '+E(o.instructions||'-')+'</p><div class="row">'+
+  FLOW[o.status].map(s=>'<button data-st="'+s+'">'+ST[s]+'</button>').join('')+(CFG().whatsapp?'<button class="sec" id="wa">WhatsApp customer</button>':'')+'</div></div>'+
+  '<div class="card"><h2>Files ('+o.files.length+'/'+o.expected+')</h2>'+(o.files.map((f,i)=>'<p>'+E(f.name)+' ('+(f.size/1024).toFixed(0)+' KB) <a href="#" data-pv="'+i+'">Preview</a> | <a href="#" data-dl="'+i+'">Download</a></p>').join('')||'<p class="muted">No files.</p>')+(o.files.length?'<button class="sec" id="rm">Delete files from this device</button>':'')+'</div>'+
+  '<div class="card"><h2>Price</h2><div class="row"><div><label for="sub">Price ('+E(cur)+')</label><input id="sub" type="number" min="0" value="'+(draft?draft.sub:o.subtotal)+'"></div><div><label for="dis">Discount</label><input id="dis" type="number" min="0" value="'+(draft?draft.dis:o.discount)+'"></div><div><label for="pg">Pages (estimate)</label><input id="pg" type="number" min="1"></div></div>'+
+  '<p>Total '+cur+' '+m.total+' | Paid '+o.paid+' | Balance '+m.balance+' | '+m.pay+'</p><div class="row"><button id="sv">Save</button><button class="sec" id="est">Estimate from pages</button><button class="sec" id="inv">Print invoice</button></div><div class="err" id="er"></div>'+
+  '<h2>Record payment</h2><div class="row"><input id="am" type="number" min="1" placeholder="Amount"><select id="me"><option>Cash</option><option>Bank Transfer</option><option>Easypaisa</option><option>JazzCash</option><option>Card</option><option>Other</option></select><button id="pay">Add</button></div></div>'+
+  '<div class="card"><h2>Activity</h2>'+o.log.map(l=>'<p class="muted">'+new Date(l.t).toLocaleString()+' - '+E(l.m)+'</p>').join('')+'</div></div>';
+  const save=async()=>{o.updated=Date.now();await putO(o);detail(id);stats()};
+  $('#bk').onclick=orders;
+  document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{const s=b.dataset.st;if(!FLOW[o.status].includes(s))return;log(o,'Status '+ST[o.status]+' → '+ST[s]);o.status=s;save()});
+  const open_=(i,dl)=>{const f=o.files[i],u=URL.createObjectURL(f.blob);if(dl){const a=document.createElement('a');a.href=u;a.download=f.name;a.click()}else open(u);setTimeout(()=>URL.revokeObjectURL(u),60000)};
+  document.querySelectorAll('[data-pv]').forEach(a=>a.onclick=e=>{e.preventDefault();open_(+a.dataset.pv,false)});
+  document.querySelectorAll('[data-dl]').forEach(a=>a.onclick=e=>{e.preventDefault();open_(+a.dataset.dl,true)});
+  if($('#rm'))$('#rm').onclick=()=>{if(confirm('Delete all files of this order from this device? This cannot be undone.')){o.files=[];log(o,'Files deleted');save()}};
+  $('#sv').onclick=()=>{const sub=+$('#sub').value,dis=+$('#dis').value||0;if(!(sub>=0)||dis<0||dis>sub)return $('#er').textContent='Invalid price or discount.';if(sub!==o.subtotal)log(o,'Price changed from '+o.subtotal+' to '+sub);o.subtotal=sub;o.discount=dis;save()};
+  $('#est').onclick=()=>{const u=JSON.parse(CFG().prices)[o.opts.type+'|'+o.opts.size],pg=+$('#pg').value;if(!u||!pg)return $('#er').textContent='No price set for this type/size, or pages missing. Enter the price manually.';$('#sub').value=u*pg*o.opts.copies};
+  $('#pay').onclick=()=>{const a=Math.round(+$('#am').value*100)/100;if(!(a>0))return $('#er').textContent='Enter a valid amount.';o.payments.push({amount:a,method:$('#me').value,t:Date.now()});o.paid+=a;log(o,'Payment '+a+' ('+$('#me').value+')');save()};
+  if($('#wa'))$('#wa').onclick=()=>open('https://wa.me/'+CFG().whatsapp.replace(/\D/g,'')+'?text='+encodeURIComponent('Your order '+o.number+' is '+ST[o.status].toLowerCase()+'. Total: '+cur+' '+m.total+'.'));
+  $('#inv').onclick=()=>{const w=open('');w.document.write('<title>Invoice '+E(o.number)+'</title><body style="font-family:sans-serif;max-width:600px;margin:20px auto"><h1>'+E(CFG().shop_name)+'</h1><p>'+E(CFG().address)+' '+E(CFG().phone)+'</p><h2>Invoice '+E(o.number)+'</h2><p>'+new Date(o.created).toLocaleDateString()+' - '+E(c.name)+'</p><p>'+o.opts.type+' '+o.opts.size+' x '+o.opts.copies+' copies '+E(o.opts.extras.join(', '))+'</p><p>Subtotal '+cur+' '+o.subtotal+'<br>Discount '+o.discount+'<br><b>Total '+cur+' '+m.total+'</b><br>Paid '+o.paid+'<br>Remaining '+m.balance+'</p>');w.document.close();w.print()};
+}
+function qr(){
+  const url=BASE+'?shop='+localStorage.pd_id;
+  $('#v').innerHTML='<div class="card" id="qrcard"><h1>'+E(CFG().shop_name)+'</h1><h2>SCAN TO SEND YOUR PRINTING</h2><div id="qrc" style="display:inline-block"></div><p>Scan • Upload • Submit</p><p class="muted">'+E(url)+'</p></div><div class="row"><button id="pr">Print QR card</button><button class="sec" id="cp">Copy customer link</button></div><p class="muted">Keep this page open during shop hours. Customers can only send files while it is open.</p>';
+  if(window.QRCode)new QRCode($('#qrc'),{text:url,width:240,height:240});else $('#qrc').textContent='QR library could not load (check internet).';
+  $('#pr').onclick=()=>print();$('#cp').onclick=()=>navigator.clipboard.writeText(url);
+}
+function settings(){
+  const c=CFG(),f=[['shop_name','Shop name'],['welcome','Welcome message'],['phone','Phone'],['whatsapp','WhatsApp number (with country code)'],['address','Address'],['currency','Currency symbol'],['max_mb','Max file size (MB)']];
+  $('#v').innerHTML='<div class="card">'+f.map(x=>'<label for="'+x[0]+'">'+x[1]+'</label><input id="'+x[0]+'" value="'+E(c[x[0]])+'">').join('')+'<label for="prices">Prices per page (JSON, key "type|size")</label><textarea id="prices" rows="4">'+E(c.prices)+'</textarea><label for="extras">Additional services (JSON: name: price)</label><textarea id="extras" rows="3">'+E(c.extras)+'</textarea><div class="err" id="er"></div><button id="sv">Save settings</button></div>';
+  $('#sv').onclick=()=>{const b=Object.fromEntries([...f.map(x=>x[0]),'prices','extras'].map(k=>[k,$('#'+k).value]));
+    try{JSON.parse(b.prices);JSON.parse(b.extras)}catch{return $('#er').textContent='Prices and services must be valid JSON.'}
+    localStorage.pd_cfg=JSON.stringify(b);shell();go('settings');$('#er').textContent='Saved.';}
+}
+
+SHOP?customer():admin();
+</script>
+</body>
+</html>
