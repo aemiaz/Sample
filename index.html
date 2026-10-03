@@ -14,6 +14,8 @@
 
 .client-shell{max-width:760px;margin:0 auto}.shop-info{display:flex;align-items:center;gap:14px;padding:18px 20px;background:#fff;border:1px solid var(--line);border-radius:17px;box-shadow:var(--shadow);margin-bottom:16px}.shop-info .shop-copy{flex:1}.shop-info h1{font-size:clamp(25px,4vw,36px);margin:0 0 5px}.shop-info p{margin:3px 0;color:var(--muted);font-size:13px}.shop-logo{display:grid;place-items:center;width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,#2f6df6,#7ea4ff);color:#fff;font:700 26px 'Space Grotesk',sans-serif;box-shadow:0 12px 22px rgba(47,109,246,.22)}.shop-contact{display:flex;gap:10px;flex-wrap:wrap;color:#4e5c72;font-size:12px;font-weight:600}.shop-contact span{padding:5px 9px;background:#f3f6fa;border-radius:8px}.client-form{padding:24px}.client-form h2{margin-bottom:4px}.client-form .muted{margin-top:0}.upload-drop{display:flex;align-items:center;gap:13px;padding:17px 16px;border:1.5px dashed #aebfe4;border-radius:15px;background:linear-gradient(135deg,#f8fbff,#eef4ff);cursor:pointer;transition:.2s}.upload-drop:hover{border-color:var(--blue);background:#eaf1ff;transform:translateY(-1px)}.upload-icon{display:grid;place-items:center;width:46px;height:46px;border-radius:13px;background:#dce8ff;color:var(--blue);font-size:27px;font-weight:700}.upload-copy{display:flex;flex-direction:column;gap:2px}.file-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.client-form .field-block{margin-top:19px}.client-form .row{align-items:stretch}.client-form .row>div{min-width:0}.client-form button#go{width:100%;margin-top:10px;font-size:16px;min-height:52px}.table-action{display:inline-block;min-height:35px;padding:7px 11px;font-size:12px;white-space:nowrap;border-radius:9px}.activity-list{display:flex;flex-direction:column;gap:0;margin-top:4px}.activity-item{display:grid;grid-template-columns:28px 1fr;gap:11px;position:relative;padding:0 0 16px}.activity-item:not(:last-child):after{content:'';position:absolute;left:13px;top:27px;bottom:0;width:2px;background:#e6ebf3}.activity-icon{position:relative;z-index:1;display:grid;place-items:center;width:27px;height:27px;border-radius:50%;background:#e5efff;color:var(--blue);font-size:12px;font-weight:800}.activity-item p{margin:0;font-size:13px;color:#314056}.activity-item time{display:block;margin-top:2px;color:#8a95a5;font-size:11px}.amount-card{max-width:700px}.amount-card .amount-input{font-size:24px;font-weight:700;letter-spacing:-.03em}.connection-card{text-align:center;max-width:520px;margin:70px auto}.connection-card .spinner{width:40px;height:40px;border:4px solid #e5ecf8;border-top-color:var(--blue);border-radius:50%;margin:0 auto 18px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 
+
+.preview-modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:18px;background:rgba(12,24,47,.72);backdrop-filter:blur(7px)}.preview-dialog{position:relative;width:min(960px,100%);height:min(86vh,760px);display:flex;flex-direction:column;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.25)}.preview-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border-bottom:1px solid #e6ebf2}.preview-bar strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.preview-close{width:40px;min-height:38px;padding:6px;background:#eef2f7;color:#27364c;box-shadow:none}.preview-body{flex:1;display:grid;place-items:center;overflow:auto;background:#eef2f7;padding:18px}.preview-body img{display:block;max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 8px 24px rgba(25,43,76,.15)}.preview-body iframe{width:100%;height:100%;border:0;background:#fff;border-radius:8px}.preview-note{max-width:420px;text-align:center;color:#5f6d82}.preview-note strong{display:block;color:#1d2a3e;font-size:17px;margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -28,6 +30,7 @@
 const $=s=>document.querySelector(s);
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const SHOP=new URLSearchParams(location.search).get('shop');
+const WORKER=new URLSearchParams(location.search).get('worker');
 const BASE=location.origin+location.pathname;
 const ALLOWED={pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'};
 const ext=n=>(n.split('.').pop()||'').toLowerCase();
@@ -45,11 +48,10 @@ addEventListener('offline',()=>alert('Connection Lost'));
 const TRACK=['new','review','accepted','payment','production','ready','completed'];
 const TRACK_LABEL={new:'Received',review:'Review',accepted:'Accepted',payment:'Payment',production:'Printing',ready:'Ready',completed:'Complete'};
 const timeline=status=>{if(['rejected','cancelled','hold'].includes(status))return '<div class="status-track special"><span class="status-dot">!</span> '+E(ST[status]||status)+'</div>';const at=Math.max(0,TRACK.indexOf(status));return '<div class="status-track">'+TRACK.map((x,i)=>'<div class="status-step '+(i<at?'done ':'')+(i===at?'active':'')+'"><span class="status-dot">'+(i<at?'✓':i+1)+'</span><span>'+TRACK_LABEL[x]+'</span>'+(i===at?'<small>Current step</small>':'')+'</div>').join('')+'</div>'};
-const chatMarkup=(id='chat')=>'<div class="card chat-card" id="'+id+'"><div class="chat-head"><h2>Chat with the shop</h2><span class="chat-state">Live chat</span></div><p class="muted">Ask a question about your files, finish, or pickup time.</p><div class="chat-messages" data-chat-messages><div class="chat-empty">No messages yet — send a message to get started.</div></div><div class="chat-compose"><input data-chat-input placeholder="Type a message…" maxlength="500" aria-label="Chat message"><button data-chat-send>Send</button></div><div class="err" data-chat-error></div></div>';
 
 /* ================= CUSTOMER ================= */
 function customer(){
-  let conn,cfg,files=[],busy=false,chatMessages=[];
+  let conn,cfg,files=[],busy=false;
   const app=$('#app');
   const peer=new Peer({debug:0});
   const show=(h)=>app.innerHTML=h;
@@ -66,26 +68,22 @@ function customer(){
       if(m.t==='cfg'){clearTimeout(timer);cfg=m;form()}
       if(m.t==='status'&&m.ok){if($('#st'))$('#st').textContent=(ST[m.status]||m.status)+(m.total!=null?' · Total '+cfg.currency+' '+m.total+' ('+m.pay+')':'');if($('#track'))$('#track').innerHTML=timeline(m.status)}
       if(m.t==='status'&&!m.ok&&$('#st'))$('#st').textContent='Order not found';
-      if(m.t==='chat_history'){chatMessages=m.messages||[];renderCustomerChat()}
-      if(m.t==='chat'){chatMessages.push(m.message);renderCustomerChat()}
     })});
-  function renderCustomerChat(){const box=document.querySelector('[data-chat-messages]');if(!box)return;box.innerHTML=chatMessages.length?chatMessages.map(x=>'<div class="chat-message '+(x.from==='customer'?'customer':'')+'">'+E(x.text)+'<small>'+new Date(x.t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+'</small></div>').join(''):'<div class="chat-empty">No messages yet — send a message to get started.</div>';box.scrollTop=box.scrollHeight}
-  function wireCustomerChat(token){if(!token)return;const input=document.querySelector('[data-chat-input]'),send=document.querySelector('[data-chat-send]'),err=document.querySelector('[data-chat-error]');if(!input||!send)return;const post=()=>{const text=input.value.trim();if(!text)return;if(!conn?.open){err.textContent='Chat is temporarily offline.';return}conn.send({t:'chat',token,text});chatMessages.push({from:'customer',text,t:Date.now()});input.value='';err.textContent='';renderCustomerChat()};send.onclick=post;input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();post()}};conn.send({t:'chat_open',token});renderCustomerChat()}
   function form(){
     document.title=cfg.shop_name+' - Print Request';
     const last=JSON.parse(localStorage['pd_last_'+SHOP]||'null');
     show('<div class="client-shell"><div class="shop-info"><div class="shop-logo">P</div><div class="shop-copy"><h1>'+E(cfg.shop_name)+'</h1><div class="shop-contact">'+(cfg.address?'<span>⌖ '+E(cfg.address)+'</span>':'')+(cfg.phone?'<span>☎ '+E(cfg.phone)+'</span>':'')+'</div></div></div>'+
-    (last?'<div class="card"><div class="status-caption"><strong>Your latest request · '+E(last.number)+'</strong><span id="st">Check for an update</span></div><div id="track" class="live-status"></div><button class="sec" id="chk">Refresh status</button></div>'+chatMarkup():'')+
+    (last?'<div class="card"><div class="status-caption"><strong>Your latest request · '+E(last.number)+'</strong><span id="st">Check for an update</span></div><div id="track" class="live-status"></div><button class="sec" id="chk">Refresh status</button></div>':'')+
     '<div class="card client-form"><div class="section-kicker"><div><h2>Send your files</h2><p class="muted">A quick request, sent directly to the shop.</p></div><span class="pill">Secure upload</span></div><label for="n">Your name</label><input id="n" autocomplete="name" placeholder="Enter your name"><div class="field-block"><label for="f">Files to print</label><label class="upload-drop" for="f"><span class="upload-icon">↑</span><span class="upload-copy"><strong>Tap to upload files</strong><span class="muted">PDF, JPG, PNG, DOC or DOCX</span></span></label><input id="f" class="file-input" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" aria-label="Choose files"><div id="fl" class="files-list"></div><p class="muted">Max '+E(cfg.max_mb)+' MB each, up to 10 files.</p></div><div class="field-block"><label for="c">Number of copies</label><input id="c" type="number" min="1" value="1" inputmode="numeric"></div><div class="field-block"><label for="d">Print sides</label><select id="d"><option value="single">Single-sided</option><option value="double">Double-sided</option></select></div><div class="err" id="er" role="alert"></div><button id="go">Submit request</button></div></div>');
-    if(last){$('#chk').onclick=()=>{conn.send({t:'track',token:last.token});conn.send({t:'chat_open',token:last.token})};wireCustomerChat(last.token);}
+    if(last){$('#chk').onclick=()=>{conn.send({t:'track',token:last.token})};}
     $('#f').onchange=e=>{for(const f of e.target.files){
       if(!ALLOWED[ext(f.name)]){$('#er').textContent='This file type is not supported.';continue}
       if(f.size>(+cfg.max_mb)*1048576){$('#er').textContent=f.name+' is too large.';continue}
       if(files.length<10)files.push({file:f,state:'ready'})}e.target.value='';list()};
     $('#go').onclick=submit;
   }
-  function list(){$('#fl').innerHTML=files.map((f,i)=>'<p><b>'+E(f.file.name)+'</b> <span class="muted">'+(f.file.size/1024).toFixed(0)+' KB - '+E(f.state)+'</span> '+(busy?'':'<button class="sec" data-i="'+i+'">Remove</button>')+'</p>').join('');
-    document.querySelectorAll('#fl button').forEach(b=>b.onclick=()=>{files.splice(+b.dataset.i,1);list()})}
+  function previewClientFile(i){const f=files[i]?.file;if(!f)return;const u=URL.createObjectURL(f);const modal=document.createElement('div');modal.className='preview-modal';const body=f.type==='application/pdf'?'<iframe title="Document preview" src="'+u+'"></iframe>':f.type.startsWith('image/')?'<img alt="'+E(f.name)+'" src="'+u+'">':'<div class="preview-note"><strong>Preview unavailable</strong><span>This file type can still be sent to the shop, but your browser cannot preview it here.</span></div>';modal.innerHTML='<div class="preview-dialog" role="dialog" aria-modal="true" aria-label="Preview '+E(f.name)+'"><div class="preview-bar"><strong>'+E(f.name)+'</strong><button type="button" class="preview-close" aria-label="Close preview">Close</button></div><div class="preview-body">'+body+'</div></div>';document.body.appendChild(modal);const close=()=>{modal.remove();URL.revokeObjectURL(u)};modal.querySelector('.preview-close').onclick=close;modal.onclick=e=>{if(e.target===modal)close()};const esc=e=>{if(e.key==='Escape'){close();document.removeEventListener('keydown',esc)}};document.addEventListener('keydown',esc)}
+  function list(){$('#fl').innerHTML=files.map((f,i)=>'<p><b>'+E(f.file.name)+'</b> <span class="muted">'+(f.file.size/1024).toFixed(0)+' KB - '+E(f.state)+'</span> '+(busy?'':'<button class="sec" data-preview="'+i+'">Preview</button> <button class="sec" data-i="'+i+'">Remove</button>')+'</p>').join('');document.querySelectorAll('#fl [data-preview]').forEach(b=>b.onclick=()=>previewClientFile(+b.dataset.preview));document.querySelectorAll('#fl [data-i]').forEach(b=>b.onclick=()=>{files.splice(+b.dataset.i,1);list()})}
   const waitFor=(type,ms=60000)=>new Promise((ok,no)=>{const t=setTimeout(()=>{conn.off('data',h);no(new Error('timeout'))},ms);const h=m=>{if(m.t===type||m.t==='reject'){clearTimeout(t);conn.off('data',h);m.t==='reject'?no(new Error(m.error)):ok(m)}};conn.on('data',h)});
   async function submit(){
     if(busy)return;const er=$('#er');er.textContent='';
@@ -101,7 +99,7 @@ function customer(){
         const buf=await files[i].file.arrayBuffer();conn.send({t:'file',token:ok.token,i,name:files[i].file.name,data:buf});
         await waitFor('ack',120000);files[i].state='sent';list()}
       localStorage['pd_last_'+SHOP]=JSON.stringify({number:ok.number,token:ok.token});
-      show('<div class="hero" style="min-height:220px"><div class="hero-content"><div class="eyebrow">Request received</div><h1>We’re on it.</h1><p>Your files are safely with the shop. Keep your request number for updates.</p></div></div><div class="card"><h2>Request submitted successfully</h2><p>Your request number:</p><h1>'+E(ok.number)+'</h1><div id="track">'+timeline('new')+'</div><p id="st" class="muted">Your request is being reviewed.</p><button onclick="location.reload()">Done</button></div>'+chatMarkup());wireCustomerChat(ok.token);
+      show('<div class="hero" style="min-height:220px"><div class="hero-content"><div class="eyebrow">Request received</div><h1>We’re on it.</h1><p>Your files are safely with the shop. Keep your request number for updates.</p></div></div><div class="card"><h2>Request submitted successfully</h2><p>Your request number:</p><h1>'+E(ok.number)+'</h1><div id="track">'+timeline('new')+'</div><p id="st" class="muted">Your request is being reviewed.</p><button onclick="location.reload()">Done</button></div>');
     }catch(e){busy=false;$('#go').disabled=false;$('#go').textContent='Submit printing request';er.textContent=(e.message==='timeout'?'Connection lost. ':'')+(e.message&&e.message!=='timeout'?e.message+' ':'')+'Your request may not have been completed. Please try again.';list()}
   }
 }
@@ -111,10 +109,24 @@ const DB=new Promise((ok,no)=>{const r=indexedDB.open('printdesk',1);r.onupgrade
 const tx=async(mode,f)=>{const d=await DB;return new Promise((ok,no)=>{const t=d.transaction('orders',mode),r=f(t.objectStore('orders'));t.oncomplete=()=>ok(r.result);t.onerror=()=>no(t.error)})};
 const allO=()=>tx('readonly',s=>s.getAll()),getO=id=>tx('readonly',s=>s.get(id)),putO=o=>tx('readwrite',s=>s.put(o));
 const log=(o,msg)=>{o.log.unshift({t:Date.now(),m:msg})};
-let view='orders',unread=0,peerOK=false,connections=new Map();
+let view='orders',unread=0,peerOK=false,connections=new Map(),workers=new Set(),workerMode=false;
 
+async function workerAdmin(primary){
+  workerMode=true;const app=$('#app'),workerId='pd-worker-'+rnd(8),peer=new Peer(workerId,{debug:0});let relay;
+  app.innerHTML='<div class="card connection-card"><div class="spinner"></div><div class="eyebrow">PrintDesk worker station</div><h2>Connecting to the main shop dashboard…</h2><p class="muted">Keep this tab open to receive new print requests and files.</p></div>';
+  const fail=msg=>{app.innerHTML='<div class="card connection-card"><h1>Worker station offline</h1><p>'+E(msg)+'</p><button onclick="location.reload()">Retry station</button></div>'};
+  peer.on('error',e=>fail(e.type==='unavailable-id'?'This worker station is already open in another tab.':'Could not connect to the main shop dashboard.'));
+  peer.on('open',()=>{relay=peer.connect(primary,{reliable:true,serialization:'binary'});relay.on('open',()=>relay.send({t:'worker_hello',id:workerId}));relay.on('close',()=>fail('The main shop dashboard is offline.'));relay.on('data',async m=>{try{
+    if(m.t==='worker_config'){localStorage.pd_cfg=JSON.stringify(m.cfg||{});shell();go('orders');return}
+    if(m.t==='worker_sync'){for(const o of (m.orders||[]))await putO(o);return refresh()}
+    if(m.t==='worker_order'){await putO(m.order);unread++;beep();refresh();return}
+    if(m.t==='worker_file'){const o=(await allO()).find(x=>x.token===m.token);if(!o)return;o.files=o.files||[];o.files.push({name:m.name,size:m.size,added:m.added||Date.now(),blob:new Blob([m.data],{type:m.type||'application/octet-stream'})});await putO(o);refresh();return}
+  }catch(e){console.error(e)}})});
+}
+const broadcastWorkers=m=>workers.forEach(c=>{try{if(c.open)c.send(m)}catch{}});
 async function admin(){
   const app=$('#app');
+  if(WORKER)return workerAdmin(WORKER);
   const form=(title,fields,btn,fn)=>{app.innerHTML='<div class="card" style="max-width:420px;margin:40px auto"><h1>'+title+'</h1>'+fields.map(f=>'<label for="'+f[0]+'">'+f[1]+'</label><input id="'+f[0]+'" type="'+(f[2]||'text')+'">').join('')+'<div class="err" id="er" role="alert"></div><button id="ok">'+btn+'</button></div>';
     $('#ok').onclick=async()=>{const r=await fn(Object.fromEntries(fields.map(f=>[f[0],$('#'+f[0]).value])));if(r)$('#er').textContent=r}};
   if(!localStorage.pd_pw)return form('Create shop password',[['shop','Shop name'],['pw','Password (8+ characters)','password']],'Create',async b=>{
@@ -131,35 +143,36 @@ function startPeer(){
   peer.on('open',()=>{peerOK=true;dot()});
   peer.on('disconnected',()=>{peerOK=false;dot();setTimeout(()=>peer.reconnect(),3000)});
   peer.on('error',e=>{peerOK=false;dot();if(e.type==='unavailable-id')alert('PrintDesk is already open in another tab or window. Close it first.')});
-  peer.on('connection',c=>{let n=0;c.on('close',()=>{if(c._pdToken&&connections.get(c._pdToken)===c)connections.delete(c._pdToken)});c.on('data',async m=>{try{
+  peer.on('connection',c=>{let n=0;c.on('close',()=>{if(c._pdToken&&connections.get(c._pdToken)===c)connections.delete(c._pdToken);if(c._worker)workers.delete(c)});c.on('data',async m=>{try{
     const cfg=CFG();
+    if(m.t==='worker_hello'){c._worker=true;workers.add(c);const all=(await allO()).map(o=>({...o,files:[]}));return c.send({t:'worker_config',cfg:{shop_name:cfg.shop_name,phone:cfg.phone,address:cfg.address,currency:cfg.currency,max_mb:cfg.max_mb}}),c.send({t:'worker_sync',orders:all})}
     if(m.t==='hello')return c.send({t:'cfg',shop_name:cfg.shop_name,phone:cfg.phone,address:cfg.address,currency:cfg.currency,max_mb:cfg.max_mb});
     if(m.t==='order'){
       const d=m.order||{},name=String(d.name||'').trim().slice(0,80),phone=String(d.phone||'').replace(/[^\d+]/g,'').slice(0,16),count=+m.count;
       if(++n>5||!name||!(count>=1&&count<=10))return c.send({t:'reject',error:'Invalid request.'});
       const pick=(v,a,df)=>a.includes(v)?v:df,day=new Date().toISOString().slice(0,10).replace(/-/g,''),k='pd_seq_'+day,seq=(+localStorage[k]||0)+1;localStorage[k]=seq;
-      const o={id:rnd(8),number:`PR-${day}-${String(seq).padStart(5,'0')}`,token:rnd(16),created:Date.now(),updated:Date.now(),status:'new',expected:count,files:[],subtotal:0,discount:0,paid:0,payments:[],chat:[],log:[],
+      const o={id:rnd(8),number:`PR-${day}-${String(seq).padStart(5,'0')}`,token:rnd(16),created:Date.now(),updated:Date.now(),status:'new',expected:count,files:[],subtotal:0,discount:0,paid:0,payments:[],log:[],
         customer:{name,phone,email:String(d.email||'').slice(0,100)},instructions:String(d.instructions||'').slice(0,2000),
         opts:{type:pick(d.type,['bw','color','photo','other'],'bw'),size:pick(d.size,['A4','A5','A3','Letter','Legal','Custom'],'A4'),sides:pick(d.sides,['single','double'],'single'),orient:pick(d.orient,['portrait','landscape'],'portrait'),copies:Math.min(Math.max(parseInt(d.copies)||1,1),10000),extras:(Array.isArray(d.extras)?d.extras:[]).map(String).slice(0,10)}};
-      log(o,'Request received');await putO(o);c._pdToken=o.token;connections.set(o.token,c);c.send({t:'order_ok',number:o.number,token:o.token});
+      log(o,'Request received');await putO(o);c._pdToken=o.token;connections.set(o.token,c);broadcastWorkers({t:'worker_order',order:{...o,files:[]}});c.send({t:'order_ok',number:o.number,token:o.token});
       unread++;beep();if('Notification'in window&&Notification.permission==='granted')new Notification('New Printing Request',{body:o.number+' - '+name+' - '+o.opts.size+' x'+o.opts.copies});
       refresh();return}
     if(m.t==='file'){
       const o=(await allO()).find(x=>x.token===m.token);if(!o||o.files.length>=o.expected)return c.send({t:'reject',error:'Invalid upload.'});
       const nm=String(m.name||'').replace(/[^\w.\- ()]/g,'_').slice(0,120),e=ext(nm);
       if(!ALLOWED[e]||!(m.data&&m.data.byteLength)||m.data.byteLength>(+cfg.max_mb)*1048576)return c.send({t:'reject',error:'This file type is not supported.'});
-      o.files.push({name:nm,size:m.data.byteLength,added:Date.now(),blob:new Blob([m.data],{type:ALLOWED[e]})});o.updated=Date.now();await putO(o);c.send({t:'ack',i:m.i});refresh();return}
-    if(m.t==='chat_open'){const o=(await allO()).find(x=>x.token===m.token);if(!o)return;c._pdToken=o.token;connections.set(o.token,c);return c.send({t:'chat_history',messages:o.chat||[]})}
-    if(m.t==='chat'){const o=(await allO()).find(x=>x.token===m.token);const text=String(m.text||'').trim().slice(0,500);if(!o||!text)return;c._pdToken=o.token;connections.set(o.token,c);o.chat=o.chat||[];const message={from:'customer',text,t:Date.now()};o.chat.push(message);log(o,'Customer sent a chat message');await putO(o);refresh();return}
+      o.files.push({name:nm,size:m.data.byteLength,added:Date.now(),blob:new Blob([m.data],{type:ALLOWED[e]})});o.updated=Date.now();await putO(o);broadcastWorkers({t:'worker_file',token:o.token,name:nm,size:m.data.byteLength,added:Date.now(),type:ALLOWED[e],data:m.data});c.send({t:'ack',i:m.i});refresh();return}
     if(m.t==='track'){const o=(await allO()).find(x=>x.token===m.token);if(!o)return c.send({t:'status',ok:false});c._pdToken=o.token;connections.set(o.token,c);const mo=money(o);return c.send({t:'status',ok:true,status:o.status,total:o.subtotal>0?mo.total:null,pay:mo.pay})}
   }catch(e){console.error(e);try{c.send({t:'reject',error:'Something went wrong.'})}catch{}}})});
 }
 function shell(){
   const cfg=CFG();document.title=cfg.shop_name+' - Dashboard';
-  $('#app').innerHTML='<div class="topbar"><div class="shop-title"><div class="brand-mark">PrintDesk</div><h1>'+E(cfg.shop_name)+'</h1><span class="muted">Operations dashboard · <span id="dot"></span></span></div><div class="actions"><button class="sec icon-button" id="bell" aria-label="Notifications">Notifications <span id="ub" class="pill">0</span></button><button class="sec" id="lo">Logout</button></div></div><div class="nav-tabs" id="nav"></div><div id="stats" class="stats-grid"></div><div id="v"></div>';
-  $('#nav').innerHTML=[['orders','Orders'],['qr','QR code'],['settings','Settings']].map(t=>'<button data-v="'+t[0]+'">'+t[1]+'</button>').join('');
+  const workerInvite=workerMode?'':'<button class="sec" id="wk">Add worker station</button>';const role=workerMode?'Worker station · mirrored requests':'Operations dashboard';
+  $('#app').innerHTML='<div class="topbar"><div class="shop-title"><div class="brand-mark">PrintDesk</div><h1>'+E(cfg.shop_name)+'</h1><span class="muted">'+role+' · <span id="dot"></span></span></div><div class="actions">'+workerInvite+'<button class="sec icon-button" id="bell" aria-label="Notifications">Notifications <span id="ub" class="pill">0</span></button><button class="sec" id="lo">Logout</button></div></div><div class="nav-tabs" id="nav"></div><div id="stats" class="stats-grid"></div><div id="v"></div>';
+  const navItems=workerMode?[['orders','Requests']]:[['orders','Orders'],['qr','QR code'],['settings','Settings']];$('#nav').innerHTML=navItems.map(t=>'<button data-v="'+t[0]+'">'+t[1]+'</button>').join('');
   document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
   $('#bell').onclick=()=>{unread=0;$('#ub').textContent=0;if('Notification'in window)Notification.requestPermission();go('orders')};
+  if($('#wk'))$('#wk').onclick=()=>{const link=BASE+'?worker='+encodeURIComponent(localStorage.pd_id);navigator.clipboard?.writeText(link);alert('Worker station link copied. Open it on the other desktop.\n\n'+link)};
   $('#lo').onclick=()=>{sessionStorage.clear();location.reload()};
   $('#dot').innerHTML='<span class="dot'+(peerOK?' on':'')+'"></span>'+(peerOK?'Live · receiving requests':'Connecting…');
 }
@@ -176,17 +189,15 @@ async function orders(){
   stats();let t;$('#q').oninput=()=>{clearTimeout(t);t=setTimeout(orders,250)};$('#s').onchange=orders;
   document.querySelectorAll('[data-id]').forEach(a=>a.onclick=e=>{e.preventDefault();detail(a.dataset.id)});
 }
-function adminChatMarkup(o){return '<div class="card chat-card"><div class="chat-head"><h2>Customer chat</h2><span class="chat-state">Private order channel</span></div><p class="muted">Messages are saved with this order and sent live when the customer is connected.</p><div class="chat-messages" data-admin-chat-messages>'+(o.chat&&o.chat.length?o.chat.map(x=>'<div class="chat-message '+(x.from==='admin'?'customer':'')+'">'+E(x.text)+'<small>'+new Date(x.t).toLocaleString()+'</small></div>').join(''):'<div class="chat-empty">No messages yet.</div>')+'</div><div class="chat-compose"><input data-admin-chat-input placeholder="Reply to the customer…" maxlength="500"><button data-admin-chat-send>Send reply</button></div><div class="err" data-admin-chat-error></div></div>'}
-function wireAdminChat(o){const input=document.querySelector('[data-admin-chat-input]'),send=document.querySelector('[data-admin-chat-send]'),err=document.querySelector('[data-admin-chat-error]');if(!input||!send)return;const post=async()=>{const text=input.value.trim();if(!text)return;const c=connections.get(o.token);if(!c?.open){err.textContent='Customer is not connected. They can read this reply when they reconnect.';return}o.chat=o.chat||[];o.chat.push({from:'admin',text,t:Date.now()});log(o,'Shop sent a chat message');await putO(o);c.send({t:'chat',message:{from:'admin',text,t:Date.now()}});input.value='';detail(o.id);};send.onclick=post;input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();post()}};const box=document.querySelector('[data-admin-chat-messages]');if(box)box.scrollTop=box.scrollHeight}
 async function detail(id,keep){
   const o=await getO(id);if(!o)return orders();const c=o.customer,cur=CFG().currency,m=money(o);
   const draft=keep&&$('#sub')?{sub:$('#sub').value}:null;
   $('#v').innerHTML='<div id="detail" data-id="'+id+'"><button class="sec" id="bk">← Orders</button><div class="card"><h2>'+E(o.number)+' <span class="pill">'+ST[o.status]+'</span></h2><p>'+E(c.name)+' - '+E(c.phone)+' '+E(c.email)+'</p><p>'+o.opts.type+', '+o.opts.size+', '+o.opts.sides+', '+o.opts.orient+', '+o.opts.copies+' copies'+(o.opts.extras.length?', '+E(o.opts.extras.join(', ')):'')+'</p><p>Instructions: '+E(o.instructions||'-')+'</p><div class="row">'+
   FLOW[o.status].map(s=>'<button data-st="'+s+'">'+ST[s]+'</button>').join('')+(CFG().whatsapp?'<button class="sec" id="wa">WhatsApp customer</button>':'')+'</div></div>'+
   '<div class="card"><h2>Files ('+o.files.length+'/'+o.expected+')</h2>'+(o.files.map((f,i)=>'<p>'+E(f.name)+' ('+(f.size/1024).toFixed(0)+' KB) <a href="#" data-pv="'+i+'">Preview</a> | <a href="#" data-dl="'+i+'">Download</a></p>').join('')||'<p class="muted">No files.</p>')+(o.files.length?'<button class="sec" id="rm">Delete files from this device</button>':'')+'</div>'+
-  '<div class="card"><div class="status-caption"><strong>Order progress</strong><span>'+E(ST[o.status])+'</span></div>'+timeline(o.status)+'</div>'+adminChatMarkup(o)+'<div class="card amount-card"><div class="section-kicker"><h2>Order amount</h2><span class="pill">Customer already knows the price</span></div><label for="sub">Amount ('+E(cur)+')</label><input id="sub" class="amount-input" type="number" min="0" value="'+(draft?draft.sub:o.subtotal)+'"><div class="err" id="er"></div><button id="sv">Save amount</button></div>'+  '<div class="card"><div class="section-kicker"><h2>Activity</h2><span class="pill">'+o.log.length+' updates</span></div><div class="activity-list">'+(o.log.length?o.log.map(l=>'<div class="activity-item"><span class="activity-icon">✓</span><div><p>'+E(l.m)+'</p><time>'+new Date(l.t).toLocaleString()+'</time></div></div>').join(''):'<p class="muted">No activity yet.</p>')+'</div></div></div>';
+  '<div class="card"><div class="status-caption"><strong>Order progress</strong><span>'+E(ST[o.status])+'</span></div>'+timeline(o.status)+'</div>'+'<div class="card amount-card"><div class="section-kicker"><h2>Order amount</h2><span class="pill">Customer already knows the price</span></div><label for="sub">Amount ('+E(cur)+')</label><input id="sub" class="amount-input" type="number" min="0" value="'+(draft?draft.sub:o.subtotal)+'"><div class="err" id="er"></div><button id="sv">Save amount</button></div>'+  '<div class="card"><div class="section-kicker"><h2>Activity</h2><span class="pill">'+o.log.length+' updates</span></div><div class="activity-list">'+(o.log.length?o.log.map(l=>'<div class="activity-item"><span class="activity-icon">✓</span><div><p>'+E(l.m)+'</p><time>'+new Date(l.t).toLocaleString()+'</time></div></div>').join(''):'<p class="muted">No activity yet.</p>')+'</div></div></div>';
   const save=async()=>{o.updated=Date.now();await putO(o);detail(id);stats()};
-  $('#bk').onclick=orders;wireAdminChat(o);
+  $('#bk').onclick=orders;
   document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{const s=b.dataset.st;if(!FLOW[o.status].includes(s))return;log(o,'Status '+ST[o.status]+' → '+ST[s]);o.status=s;const c=connections.get(o.token);if(c?.open){const mo=money(o);c.send({t:'status',ok:true,status:o.status,total:o.subtotal>0?mo.total:null,pay:mo.pay})}save()});
   const open_=(i,dl)=>{const f=o.files[i],u=URL.createObjectURL(f.blob);if(dl){const a=document.createElement('a');a.href=u;a.download=f.name;a.click()}else open(u);setTimeout(()=>URL.revokeObjectURL(u),60000)};
   document.querySelectorAll('[data-pv]').forEach(a=>a.onclick=e=>{e.preventDefault();open_(+a.dataset.pv,false)});
