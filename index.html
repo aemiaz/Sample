@@ -65,6 +65,7 @@ button.sm,.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}button:disable
 .mbox{background:#fff;border-radius:14px;width:min(900px,100%);max-height:100%;display:flex;flex-direction:column;overflow:hidden}
 .mh{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}.mh b{flex:1;overflow-wrap:anywhere}
 .mb{overflow:auto;padding:12px;flex:1;min-height:200px}.mb img{max-width:100%;display:block;margin:0 auto}.mb iframe{width:100%;height:70vh;border:0}
+.pv{flex-basis:100%}.pv img{max-width:100%;max-height:420px;display:block;border-radius:8px;border:1px solid var(--line)}.pv canvas{display:block;border:1px solid var(--line);border-radius:8px;margin-bottom:6px}.pv iframe{width:100%;height:60vh;border:0}
 </style>
 </head>
 <body>
@@ -72,6 +73,7 @@ button.sm,.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}button:disable
 <main id="app">Loading...</main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 'use strict';
 /* ===== PrintDesk (single file, no server) =====
@@ -82,6 +84,20 @@ const E=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const SHOP=new URLSearchParams(location.search).get('shop');
 const BASE=location.origin+location.pathname;
 const ALLOWED={pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'};
+if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+async function pdfPages(blob,max,scale,cb){const d=await pdfjsLib.getDocument({data:await blob.arrayBuffer()}).promise,n=Math.min(d.numPages,max);for(let i=1;i<=n;i++){const pg=await d.getPage(i),v=pg.getViewport({scale:scale(pg.getViewport({scale:1}))}),cv=document.createElement('canvas');cv.width=v.width;cv.height=v.height;await pg.render({canvasContext:cv.getContext('2d'),viewport:v}).promise;cb(cv,i)}return d.numPages}
+async function printFiles(o,idx){const p=o.opts,imgs=[],skip=[];
+  for(const i of idx){const f=o.files[i],x=ext(f.name);
+    if(/^(jpg|jpeg|png)$/.test(x))imgs.push(URL.createObjectURL(f.blob));
+    else if(x==='pdf'){if(!window.pdfjsLib){open(URL.createObjectURL(f.blob));continue}await pdfPages(f.blob,500,()=>2,cv=>imgs.push(cv.toDataURL('image/jpeg',.92)))}
+    else skip.push(f.name)}
+  if(skip.length)alert('Word files cannot be printed directly from the browser. Please download and print: '+skip.join(', '));
+  if(!imgs.length)return;
+  const pg=/^(A3|A4|A5|Letter|Legal)$/i.test(p.size)?'size:'+p.size+' '+(p.orient==='landscape'?'landscape':'portrait')+';':'';
+  const fr=document.createElement('iframe');fr.style.cssText='position:fixed;left:-10000px;top:0;width:800px;height:1100px;border:0';
+  fr.srcdoc='<!doctype html><style>@page{'+pg+'margin:0}html,body{margin:0}img{display:block;max-width:100%;max-height:100vh;margin:0 auto;page-break-after:always}</style>'+imgs.map(u=>'<img src="'+u+'">').join('');
+  fr.onload=()=>setTimeout(()=>{fr.contentWindow.focus();fr.contentWindow.print();setTimeout(()=>fr.remove(),120000)},300);
+  document.body.appendChild(fr)}
 const ext=n=>(n.split('.').pop()||'').toLowerCase();
 const ST={new:'New',review:'Under Review',accepted:'Accepted',payment:'Payment Pending',production:'In Production',ready:'Ready',completed:'Completed',rejected:'Rejected',cancelled:'Cancelled',hold:'On Hold'};
 const FLOW={new:['review','rejected','cancelled'],review:['accepted','rejected','cancelled','hold'],accepted:['payment','production','cancelled','hold'],payment:['production','cancelled'],production:['ready','hold'],ready:['completed'],hold:['review','accepted','production','cancelled'],completed:[],rejected:[],cancelled:[]};
@@ -96,7 +112,7 @@ const waNum=p=>{let d=dg(p);if(d.startsWith('00'))d=d.slice(2);else if(d[0]==='0
 const fmt=t=>new Date(t).toLocaleString([],{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
 const ini=n=>E((String(n).trim().match(/[\p{L}\p{N}]/u)||['?'])[0].toUpperCase());
 const TY={bw:'Black & White',color:'Color',photo:'Photo',other:'Other'};
-const I={clk:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',up:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',ph:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+const I={pr:'<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',clk:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',up:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',ph:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
  wa:'<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
  pin:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',nav:'<polygon points="3 11 22 2 13 21 11 13 3 11"/>',
  bell:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
@@ -153,8 +169,15 @@ function customer(){
       if(skip)er.textContent='Only 10 files are allowed. '+skip+' file(s) were not added.';e.target.value='';list()};
     $('#go').onclick=submit;
   }
-  function list(){$('#fl').innerHTML=files.map((f,i)=>{const x=ext(f.file.name),img=/^(jpg|jpeg|png)$/.test(x);if(!f.url)f.url=URL.createObjectURL(f.file);
-      return'<div class="fi">'+(img?'<img class="th" src="'+f.url+'" alt="">':'<b class="th ex">'+E(x.toUpperCase())+'</b>')+'<span>'+E(f.file.name)+'<br><small class="muted">'+(f.file.size/1024).toFixed(0)+' KB - '+E(f.state)+'</small></span><button class="sec sm" data-pv="'+i+'">Preview</button>'+(busy?'':'<button class="bad sm" data-i="'+i+'">Remove</button>')+'</div>'}).join('');
+  function list(){$('#fl').innerHTML=files.map((f,i)=>{const x=ext(f.file.name);if(!f.url)f.url=URL.createObjectURL(f.file);
+      return'<div class="fi"><b class="th ex">'+E(x.toUpperCase())+'</b><span>'+E(f.file.name)+'<br><small class="muted">'+(f.file.size/1024).toFixed(0)+' KB - '+E(f.state)+'</small></span><button class="sec sm" data-pv="'+i+'">Enlarge</button>'+(busy?'':'<button class="bad sm" data-i="'+i+'">Remove</button>')+'<div class="pv" data-box="'+i+'"></div></div>'}).join('');
+    files.forEach((f,i)=>{const box=$('#fl [data-box="'+i+'"]'),x=ext(f.file.name);
+      if(f.pv){box.appendChild(f.pv);return}
+      f.pv=document.createElement('div');box.appendChild(f.pv);
+      if(/^(jpg|jpeg|png)$/.test(x))f.pv.innerHTML='<img src="'+f.url+'" alt="Preview of '+E(f.file.name)+'">';
+      else if(x==='pdf'){f.pv.innerHTML='<p class="muted">Loading preview...</p>';const w=f.pv.clientWidth||300;
+        (window.pdfjsLib?pdfPages(f.file,3,v=>Math.min(2,w/v.width*(devicePixelRatio||1)),(cv)=>{if(f.pv.firstChild&&f.pv.firstChild.tagName==='P')f.pv.innerHTML='';cv.style.width='100%';f.pv.appendChild(cv)}):Promise.reject()).catch(()=>{f.pv.innerHTML='<iframe src="'+f.url+'" title="Preview"></iframe>'})}
+      else f.pv.innerHTML='<p class="muted">Preview is not available for Word files. They will be sent to the shop as they are.</p>'});
     document.querySelectorAll('#fl [data-i]').forEach(b=>b.onclick=()=>{URL.revokeObjectURL(files[+b.dataset.i].url);files.splice(+b.dataset.i,1);list()});
     document.querySelectorAll('#fl [data-pv]').forEach(b=>b.onclick=()=>preview(+b.dataset.pv))}
   function preview(i){const f=files[i],x=ext(f.file.name),m=document.createElement('div');m.className='modal';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');
@@ -268,7 +291,7 @@ async function detail(id){
   '<section class="card full"><h3>Next step</h3>'+(nx.length?'<div class="btns">'+nx.map(s=>'<button class="'+(/^(rejected|cancelled)$/.test(s)?'bad':MAIN[o.status]===s?'':'sec')+'" data-st="'+s+'">'+ACT[s]+'</button>').join('')+'</div>':'<p class="muted">This order is '+ST[o.status].toLowerCase()+'. No further steps.</p>')+'</section>'+
   '<section class="card"><h3>Customer</h3>'+kv([['Name',E(c.name)],['Mobile',E(c.phone)]].concat(c.email?[['Email',E(c.email)]]:[]))+'<div class="btns"><a class="btn sec sm" href="tel:'+E(c.phone)+'">'+ic('ph')+'Call</a>'+(w?'<a class="btn wa sm" target="_blank" rel="noopener" href="https://wa.me/'+w+'?text='+encodeURIComponent('Hello '+c.name+', your order '+o.number+' at '+CFG().shop_name+' is now: '+ST[o.status]+'.')+'">'+ic('wa')+'WhatsApp</a>':'')+'</div></section>'+
   '<section class="card"><h3>Print requirements</h3>'+kv([['Type',E(TY[p.type]||p.type)],['Paper size',E(p.size)],['Sides',p.sides==='double'?'Double-sided':'Single-sided'],['Orientation',p.orient==='landscape'?'Landscape':'Portrait'],['Copies',E(p.copies)],['Services',E(p.extras.join(', ')||'None')],['Instructions',E(o.instructions||'None')]])+'</section>'+
-  '<section class="card full"><h3>Files ('+o.files.length+' of '+o.expected+' received)</h3>'+(o.files.map((f,i)=>'<div class="fi"><span>'+E(f.name)+' <small class="muted">'+(f.size/1024).toFixed(0)+' KB</small></span><button class="sec sm" data-pv="'+i+'">Preview</button><button class="sec sm" data-dl="'+i+'">Download</button></div>').join('')||'<p class="muted">No files on this device.</p>')+(o.files.length?'<p><button class="bad sm" id="rm">Delete files from this device</button></p>':'')+'</section>'+
+  '<section class="card full"><h3>Files ('+o.files.length+' of '+o.expected+' received)</h3>'+(o.files.length?'<p><button id="pall">'+ic('pr')+'Print all files</button></p>':'')+(o.files.map((f,i)=>'<div class="fi"><span>'+E(f.name)+' <small class="muted">'+(f.size/1024).toFixed(0)+' KB</small></span><button class="sm" data-pr="'+i+'">'+ic('pr')+'Print</button><button class="sec sm" data-pv="'+i+'">Preview</button><button class="sec sm" data-dl="'+i+'">Download</button></div>').join('')||'<p class="muted">No files on this device.</p>')+(o.files.length?'<p><button class="bad sm" id="rm">Delete files from this device</button></p>':'')+'</section>'+
   '<section class="card full"><h3>Activity</h3><ul class="tl">'+o.log.map(l=>'<li><span class="muted">'+fmt(l.t)+'</span> '+E(l.m)+'</li>').join('')+'</ul></section></div></div>';
   const save=async()=>{o.updated=Date.now();await putO(o);detail(id);stats()};
   $('#bk').onclick=()=>orders();
@@ -276,6 +299,9 @@ async function detail(id){
   const open_=(i,dl)=>{const f=o.files[i],u=URL.createObjectURL(f.blob);if(dl){const a=document.createElement('a');a.href=u;a.download=f.name;a.click()}else open(u);setTimeout(()=>URL.revokeObjectURL(u),60000)};
   document.querySelectorAll('[data-pv]').forEach(a=>a.onclick=e=>{e.preventDefault();open_(+a.dataset.pv,false)});
   document.querySelectorAll('[data-dl]').forEach(a=>a.onclick=e=>{e.preventDefault();open_(+a.dataset.dl,true)});
+  const doPrint=async(b,idx)=>{const h=b.innerHTML;b.disabled=true;b.textContent='Preparing...';try{await printFiles(o,idx)}catch(e){alert('Could not print: '+e.message)}b.disabled=false;b.innerHTML=h};
+  document.querySelectorAll('[data-pr]').forEach(b=>b.onclick=()=>doPrint(b,[+b.dataset.pr]));
+  if($('#pall'))$('#pall').onclick=e=>doPrint(e.currentTarget,o.files.map((_,i)=>i));
   if($('#rm'))$('#rm').onclick=()=>{if(confirm('Delete all files of this order from this device? This cannot be undone.')){o.files=[];log(o,'Files deleted');save()}};
 }
 function qr(){
