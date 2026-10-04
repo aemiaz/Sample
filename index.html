@@ -55,6 +55,12 @@ button.sm,.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}button:disable
 @media print{body *{visibility:hidden}#qrcard,#qrcard *{visibility:visible}#qrcard{position:absolute;left:0;top:0;width:100%;border:0}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .sw .trk{width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.35);position:relative;flex:none}.sw .trk i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}.sw.on .trk{background:#3ddc84}.sw.on .trk i{left:18px}
+.sr{position:absolute;width:1px!important;height:1px;min-height:0!important;padding:0!important;opacity:0;overflow:hidden}
+.drop{display:flex;flex-direction:column;align-items:center;gap:8px;padding:24px 16px;margin:0;border:2px dashed #9fb0c6;border-radius:16px;background:#f7fafd;text-align:center;cursor:pointer;color:var(--ink);font-weight:600;transition:background .15s,border-color .15s}
+.drop svg{width:32px;height:32px;color:var(--c)}.drop:hover,.drop.over{border-color:var(--c);background:#eaf5fb}
+.sr:focus-visible+.drop{outline:3px solid var(--c);outline-offset:2px}
+.pickbtn{background:var(--c);color:#fff;border-radius:99px;padding:10px 22px;font-size:15px;box-shadow:0 2px 6px rgba(8,119,176,.35)}.drop:hover .pickbtn{background:#065f8d}
+@media(hover:none){.drop .dt{font-size:0}.drop .dt:before{content:"Add your documents";font-size:16px}}
 </style>
 </head>
 <body>
@@ -77,7 +83,7 @@ const ST={new:'New',review:'Under Review',accepted:'Accepted',payment:'Payment P
 const FLOW={new:['review','rejected','cancelled'],review:['accepted','rejected','cancelled','hold'],accepted:['payment','production','cancelled','hold'],payment:['production','cancelled'],production:['ready','hold'],ready:['completed'],hold:['review','accepted','production','cancelled'],completed:[],rejected:[],cancelled:[]};
 const rnd=n=>[...crypto.getRandomValues(new Uint8Array(n))].map(b=>b.toString(16).padStart(2,'0')).join('');
 const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
-const DEF={shop_name:'My Print Shop',welcome:'Upload your documents and submit your printing requirements.',phone:'',whatsapp:'',address:'',logo:'',cc:'92',max_mb:'20',extras:'Spiral binding\nLamination\nStapling'};
+const DEF={shop_name:'My Print Shop',welcome:'Upload your documents and submit your printing requirements.',phone:'',whatsapp:'',address:'',hours:'',logo:'',cc:'92',max_mb:'20',extras:'Spiral binding\nLamination\nStapling'};
 const CFG=()=>({...DEF,...JSON.parse(localStorage.pd_cfg||'{}')});
 const svc=c=>{try{const j=JSON.parse(c.extras);if(Array.isArray(j))return j.map(String);if(j&&typeof j==='object')return Object.keys(j)}catch{}return String(c.extras||'').split('\n').map(x=>x.trim()).filter(Boolean)};
 const dg=s=>String(s??'').replace(/\D/g,'');
@@ -86,7 +92,7 @@ const waNum=p=>{let d=dg(p);if(d.startsWith('00'))d=d.slice(2);else if(d[0]==='0
 const fmt=t=>new Date(t).toLocaleString([],{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
 const ini=n=>E((String(n).trim().match(/[\p{L}\p{N}]/u)||['?'])[0].toUpperCase());
 const TY={bw:'Black & White',color:'Color',photo:'Photo',other:'Other'};
-const I={ph:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+const I={clk:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',up:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',ph:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
  wa:'<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
  pin:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',nav:'<polygon points="3 11 22 2 13 21 11 13 3 11"/>',
  bell:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
@@ -95,9 +101,10 @@ const ic=n=>'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke=
 /* Shop header used on both customer ('cust') and owner ('own') sides */
 function brand(c,m){const l=safeImg(c.logo),t=String(c.phone||'').trim(),a=String(c.address||'').trim(),w=dg(c.whatsapp),tl='tel:'+E(t.replace(/[^\d+]/g,''));
  const meta=(a?'<p class="meta">'+ic('pin')+'<span>'+E(a)+'</span></p>':'')+(t?'<p class="meta">'+ic('ph')+'<a href="'+tl+'">'+E(t)+'</a></p>':'')||(m==='own'?'<p class="meta"><a href="#" id="hint">Add your address and phone in Settings</a></p>':'');
- const acts=m==='cust'?(t?'<a class="btn gh" href="'+tl+'">'+ic('ph')+'Call</a>':'')+(w?'<a class="btn wa" target="_blank" rel="noopener" href="https://wa.me/'+w+'">'+ic('wa')+'WhatsApp</a>':'')+(a?'<a class="btn gh" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query='+encodeURIComponent(a)+'">'+ic('nav')+'Directions</a>':''):
+ const acts=m==='cust'?(t?'<a class="btn gh" href="'+tl+'">'+ic('ph')+'Call</a>':'')+(w?'<a class="btn wa" target="_blank" rel="noopener" href="https://wa.me/'+w+'">'+ic('wa')+'WhatsApp</a>':''):
   '<span class="chip" id="dot"></span><button class="gh sw" id="sw" role="switch" aria-checked="true" aria-label="Accept customer requests"><span class="trk"><i></i></span><span id="swt">Open</span></button><button class="gh" id="bell" aria-label="Notifications">'+ic('bell')+'<span class="bdg" id="ub" hidden>0</span></button><button class="gh" id="lo">'+ic('out')+'Log out</button>';
- return'<div class="brand"><div class="bin '+m+'"><div class="logo">'+(l?'<img src="'+l+'" alt="">':'<b>'+ini(c.shop_name)+'</b>')+'</div><div class="bi"><h1>'+E(c.shop_name)+'</h1>'+meta+'</div><div class="acts">'+acts+'</div></div></div><div class="cmyk" aria-hidden="true"><i></i><i></i><i></i><i></i></div>'}
+ const hr=m==='cust'&&c.hours?'<p class="meta">'+ic('clk')+'<span>'+E(c.hours)+'</span></p>':'';
+ return'<div class="brand"><div class="bin '+m+'"><div class="logo">'+(l?'<img src="'+l+'" alt="">':'<b>'+ini(c.shop_name)+'</b>')+'</div><div class="bi"><h1>'+E(c.shop_name)+'</h1>'+meta+hr+'</div><div class="acts">'+acts+'</div></div></div><div class="cmyk" aria-hidden="true"><i></i><i></i><i></i><i></i></div>'}
 const beep=()=>{try{const a=new AudioContext(),o=a.createOscillator();o.connect(a.destination);o.frequency.value=880;o.start();o.stop(a.currentTime+.25)}catch{}};
 addEventListener('offline',()=>alert('Connection Lost'));
 
@@ -108,14 +115,14 @@ function customer(){
   const peer=new Peer();
   const show=(h)=>app.innerHTML=h,head=c=>$('#hdr').innerHTML=brand(c,'cust');
   show('<div class="card">Connecting to the shop...</div>');
-  const closed=()=>show('<div class="card"><h1>Shop is currently closed</h1><p>The shop is not receiving requests right now. Please try again during shop hours.</p><button onclick="location.reload()">Retry</button></div>');
+  let hrs='';const closed=()=>show('<div class="card"><h1>Shop is currently closed</h1><p>The shop is not receiving requests right now.'+(hrs?' Shop hours: <b>'+E(hrs)+'</b>.':' Please try again during shop hours.')+'</p><button onclick="location.reload()">Retry</button></div>');
   const timer=setTimeout(closed,12000);
   peer.on('error',closed);
   peer.on('open',()=>{conn=peer.connect(SHOP,{reliable:true});
     conn.on('open',()=>conn.send({t:'hello'}));
     conn.on('close',()=>{if(!busy)closed()});
     conn.on('data',m=>{
-      if(m.t==='closed'){clearTimeout(timer);closed()}
+      if(m.t==='closed'){clearTimeout(timer);hrs=m.hours||'';head(m);closed()}
       if(m.t==='cfg'){clearTimeout(timer);cfg=m;form()}
       if(m.t==='status'&&$('#st'))$('#st').innerHTML=m.ok?'Status: <span class="pill st-'+E(m.status)+'">'+E(ST[m.status]||m.status)+'</span>':'Order not found';
     })});
@@ -125,12 +132,13 @@ function customer(){
     head(cfg);show('<p class="intro">'+E(cfg.welcome)+'</p>'+
     (last?'<div class="card"><b>Your last request: '+E(last.number)+'</b><p id="st" class="muted"></p><button class="sec" id="chk">Check status</button></div>':'')+
     '<div class="card"><h2>Your details</h2><label for="n">Full name</label><input id="n" autocomplete="name"><label for="p">Mobile / WhatsApp</label><input id="p" type="tel" autocomplete="tel"><label for="e">Email (optional)</label><input id="e" type="email"></div>'+
-    '<div class="card"><h2>Files</h2><input id="f" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" aria-label="Choose files"><div id="fl"></div><p class="muted">PDF, JPG, PNG, DOC, DOCX. Max '+E(cfg.max_mb)+' MB each, up to 10 files.</p></div>'+
+    '<div class="card"><h2>Files</h2><input id="f" class="sr" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"><label class="drop" id="dz" for="f">'+ic('up')+'<span class="dt">Tap to choose files</span><span class="pickbtn">Browse files</span></label><div id="fl"></div><p class="muted">PDF, JPG, PNG, DOC, DOCX. Max '+E(cfg.max_mb)+' MB each, up to 10 files.</p></div>'+
     '<div class="card"><h2>Printing</h2><div class="row"><div><label for="t">Type</label><select id="t"><option value="bw">Black &amp; White</option><option value="color">Color</option><option value="photo">Photo</option><option value="other">Other</option></select></div><div><label for="s">Paper size</label><select id="s"><option>A4</option><option>A5</option><option>A3</option><option>Letter</option><option>Legal</option><option>Custom</option></select></div></div>'+
     '<div class="row"><div><label for="d">Sides</label><select id="d"><option value="single">Single-sided</option><option value="double">Double-sided</option></select></div><div><label for="o">Orientation</label><select id="o"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></div><div><label for="c">Copies</label><input id="c" type="number" min="1" value="1" inputmode="numeric"></div></div>'+
     (cfg.extras.length?'<label>Additional services</label>'+cfg.extras.map(x=>'<label class="chk"><input type="checkbox" class="ex" value="'+E(x)+'">'+E(x)+'</label>').join(''):'')+
     '<label for="i">Special instructions</label><textarea id="i" rows="3"></textarea></div><div class="err" id="er" role="alert"></div><button id="go">Submit printing request</button>');
     if(last)$('#chk').onclick=()=>{conn.send({t:'track',token:last.token})};
+    const dz=$('#dz');['dragenter','dragover'].forEach(v=>dz.addEventListener(v,e=>{e.preventDefault();dz.classList.add('over')}));['dragleave','drop'].forEach(v=>dz.addEventListener(v,e=>{e.preventDefault();dz.classList.remove('over')}));dz.addEventListener('drop',e=>{if(e.dataTransfer.files.length){$('#f').files=e.dataTransfer.files;$('#f').dispatchEvent(new Event('change'))}});
     $('#f').onchange=e=>{for(const f of e.target.files){
       if(!ALLOWED[ext(f.name)]){$('#er').textContent='This file type is not supported.';continue}
       if(f.size>(+cfg.max_mb)*1048576){$('#er').textContent=f.name+' is too large.';continue}
@@ -191,7 +199,7 @@ function startPeer(){
     else if(/^(network|server-error|socket-error|socket-closed)$/.test(e.type)){peerOK=false;peerMsg='Reconnecting...';live();p.destroy();again(5000)}});
   p.on('connection',c=>{let n=0;c.on('data',async m=>{try{
     const cfg=CFG();
-    if(m.t==='hello')return !shopOpen()?c.send({t:'closed'}):c.send({t:'cfg',shop_name:cfg.shop_name,welcome:cfg.welcome,phone:cfg.phone,whatsapp:cfg.whatsapp,address:cfg.address,logo:safeImg(cfg.logo),max_mb:cfg.max_mb,extras:svc(cfg)});
+    if(m.t==='hello')return !shopOpen()?c.send({t:'closed',shop_name:cfg.shop_name,phone:cfg.phone,whatsapp:cfg.whatsapp,address:cfg.address,hours:cfg.hours,logo:safeImg(cfg.logo)}):c.send({t:'cfg',shop_name:cfg.shop_name,welcome:cfg.welcome,phone:cfg.phone,whatsapp:cfg.whatsapp,address:cfg.address,hours:cfg.hours,logo:safeImg(cfg.logo),max_mb:cfg.max_mb,extras:svc(cfg)});
     if(m.t==='order'){if(!shopOpen())return c.send({t:'reject',error:'The shop is closed right now.'});
       const d=m.order||{},name=String(d.name||'').trim().slice(0,80),phone=String(d.phone||'').replace(/[^\d+]/g,'').slice(0,16),count=+m.count;
       if(++n>5||!name||phone.length<7||!(count>=1&&count<=10))return c.send({t:'reject',error:'Invalid request.'});
@@ -256,7 +264,7 @@ async function detail(id){
 }
 function qr(){
   const c=CFG(),url=BASE+'?shop='+localStorage.pd_id,l=safeImg(c.logo);
-  $('#v').innerHTML='<div class="card center" id="qrcard">'+(l?'<img src="'+l+'" alt="" style="height:64px;max-width:200px;object-fit:contain">':'')+'<h1>'+E(c.shop_name)+'</h1><h2>Scan to send your printing</h2><div id="qrc" style="display:inline-block"></div><p><b>Scan • Upload • Submit</b></p>'+(c.address?'<p class="muted">'+E(c.address)+'</p>':'')+(c.phone?'<p class="muted">'+E(c.phone)+'</p>':'')+'</div><div class="card"><div class="btns"><button id="pr">Print QR card</button><button class="sec" id="cp">Copy customer link</button></div><p class="muted" style="overflow-wrap:anywhere">'+E(url)+'</p><p class="muted">Keep this page open during shop hours. Customers can only send files while it is open.</p></div>';
+  $('#v').innerHTML='<div class="card center" id="qrcard">'+(l?'<img src="'+l+'" alt="" style="height:64px;max-width:200px;object-fit:contain">':'')+'<h1>'+E(c.shop_name)+'</h1><h2>Scan to send your printing</h2><div id="qrc" style="display:inline-block"></div><p><b>Scan • Upload • Submit</b></p>'+(c.address?'<p class="muted">'+E(c.address)+'</p>':'')+(c.phone?'<p class="muted">'+E(c.phone)+'</p>':'')+(c.hours?'<p class="muted">'+E(c.hours)+'</p>':'')+'</div><div class="card"><div class="btns"><button id="pr">Print QR card</button><button class="sec" id="cp">Copy customer link</button></div><p class="muted" style="overflow-wrap:anywhere">'+E(url)+'</p><p class="muted">Keep this page open during shop hours. Customers can only send files while it is open.</p></div>';
   if(window.QRCode)new QRCode($('#qrc'),{text:url,width:240,height:240});else $('#qrc').textContent='QR library could not load (check internet).';
   $('#pr').onclick=()=>print();$('#cp').onclick=async()=>{try{await navigator.clipboard.writeText(url);$('#cp').textContent='Copied'}catch{$('#cp').textContent='Copy failed'}};
 }
@@ -264,7 +272,7 @@ function settings(){
   const c=CFG();let logo=safeImg(c.logo);
   const f=(k,l,t)=>'<label for="'+k+'">'+l+'</label><input id="'+k+'"'+(t?' type="'+t+'"':'')+' value="'+E(c[k])+'">';
   $('#v').innerHTML='<section class="card"><h2>Shop profile</h2><p class="muted">Shown in the header of the customer page and on your QR card.</p><div class="btns" style="gap:14px"><div class="logo big" id="lp"></div><div class="btns"><button class="sec" id="lu">Upload logo</button><input id="lf" type="file" accept="image/*" hidden><button class="bad" id="lrm">Remove</button></div></div>'+f('shop_name','Shop name')+f('welcome','Welcome message')+'</section>'+
-  '<section class="card"><h2>Contact and location</h2><p class="muted">Customers get Call, WhatsApp and Directions buttons from these details.</p><div class="sg"><div>'+f('phone','Phone number','tel')+'</div><div>'+f('whatsapp','WhatsApp number (with country code)','tel')+'</div></div>'+f('address','Address')+'</section>'+
+  '<section class="card"><h2>Contact and location</h2><p class="muted">Customers get Call and WhatsApp buttons from these details.</p><div class="sg"><div>'+f('phone','Phone number','tel')+'</div><div>'+f('whatsapp','WhatsApp number (with country code)','tel')+'</div></div>'+f('address','Address')+f('hours','Shop hours (e.g. Mon-Sat, 9am-8pm)')+'</section>'+
   '<section class="card"><h2>Requests</h2><div class="sg"><div>'+f('max_mb','Max file size (MB)','number')+'</div><div>'+f('cc','Country code for customer numbers')+'</div></div><label for="extras">Additional services (one per line)</label><textarea id="extras" rows="4">'+E(svc(c).join('\n'))+'</textarea></section><div class="err" id="er" role="alert"></div><button id="sv">Save settings</button>';
   const paint=()=>{$('#lp').innerHTML=logo?'<img src="'+logo+'" alt="">':'<b>'+ini(c.shop_name)+'</b>';$('#lrm').hidden=!logo};paint();
   $('#lu').onclick=()=>$('#lf').click();$('#lrm').onclick=()=>{logo='';paint()};
@@ -273,7 +281,7 @@ function settings(){
     im.onerror=()=>{URL.revokeObjectURL(u);$('#er').textContent='This image could not be read. Try a PNG or JPG.'};im.src=u};
   $('#sv').onclick=()=>{const g=k=>$('#'+k).value.trim(),mb=+g('max_mb'),er=$('#er');er.style.color='';
     if(!g('shop_name'))return er.textContent='Enter your shop name.';if(!(mb>0))return er.textContent='Enter a valid max file size.';
-    try{localStorage.pd_cfg=JSON.stringify({shop_name:g('shop_name'),welcome:g('welcome'),phone:g('phone'),whatsapp:g('whatsapp'),address:g('address'),logo,cc:dg(g('cc')),max_mb:String(mb),extras:$('#extras').value.split('\n').map(x=>x.trim()).filter(Boolean).join('\n')})}catch{return er.textContent='Could not save. The logo may be too large.'}
+    try{localStorage.pd_cfg=JSON.stringify({shop_name:g('shop_name'),welcome:g('welcome'),phone:g('phone'),whatsapp:g('whatsapp'),address:g('address'),hours:g('hours'),logo,cc:dg(g('cc')),max_mb:String(mb),extras:$('#extras').value.split('\n').map(x=>x.trim()).filter(Boolean).join('\n')})}catch{return er.textContent='Could not save. The logo may be too large.'}
     shell();go('settings');$('#er').style.color='var(--g)';$('#er').textContent='Settings saved.'};
 }
 
