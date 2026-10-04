@@ -60,7 +60,11 @@ button.sm,.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}button:disable
 .drop svg{width:32px;height:32px;color:var(--c)}.drop:hover,.drop.over{border-color:var(--c);background:#eaf5fb}
 .sr:focus-visible+.drop{outline:3px solid var(--c);outline-offset:2px}
 .pickbtn{background:var(--c);color:#fff;border-radius:99px;padding:10px 22px;font-size:15px;box-shadow:0 2px 6px rgba(8,119,176,.35)}.drop:hover .pickbtn{background:#065f8d}
-@media(hover:none){.drop .dt{font-size:0}.drop .dt:before{content:"Add your documents";font-size:16px}}
+.th{width:48px;height:48px;border-radius:8px;object-fit:cover;flex:none;background:#eef2f7}.th.ex{display:grid;place-items:center;font-size:12px;color:var(--c)}
+.modal{position:fixed;inset:0;background:rgba(10,18,35,.7);z-index:50;display:grid;place-items:center;padding:12px}
+.mbox{background:#fff;border-radius:14px;width:min(900px,100%);max-height:100%;display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}.mh b{flex:1;overflow-wrap:anywhere}
+.mb{overflow:auto;padding:12px;flex:1;min-height:200px}.mb img{max-width:100%;display:block;margin:0 auto}.mb iframe{width:100%;height:70vh;border:0}
 </style>
 </head>
 <body>
@@ -132,21 +136,31 @@ function customer(){
     head(cfg);show('<p class="intro">'+E(cfg.welcome)+'</p>'+
     (last?'<div class="card"><b>Your last request: '+E(last.number)+'</b><p id="st" class="muted"></p><button class="sec" id="chk">Check status</button></div>':'')+
     '<div class="card"><h2>Your details</h2><label for="n">Full name</label><input id="n" autocomplete="name"><label for="p">Mobile / WhatsApp</label><input id="p" type="tel" autocomplete="tel"><label for="e">Email (optional)</label><input id="e" type="email"></div>'+
-    '<div class="card"><h2>Files</h2><input id="f" class="sr" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"><label class="drop" id="dz" for="f">'+ic('up')+'<span class="dt">Tap to choose files</span><span class="pickbtn">Browse files</span></label><div id="fl"></div><p class="muted">PDF, JPG, PNG, DOC, DOCX. Max '+E(cfg.max_mb)+' MB each, up to 10 files.</p></div>'+
+    '<div class="card"><h2>Files</h2><input id="f" class="sr" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"><label class="drop" id="dz" for="f">'+ic('up')+'<span class="dt">Select one or more files</span><span class="pickbtn">Browse files</span></label><div id="fl"></div><p class="muted">PDF, JPG, PNG, DOC, DOCX. Max '+E(cfg.max_mb)+' MB each, up to 10 files.</p></div>'+
     '<div class="card"><h2>Printing</h2><div class="row"><div><label for="t">Type</label><select id="t"><option value="bw">Black &amp; White</option><option value="color">Color</option><option value="photo">Photo</option><option value="other">Other</option></select></div><div><label for="s">Paper size</label><select id="s"><option>A4</option><option>A5</option><option>A3</option><option>Letter</option><option>Legal</option><option>Custom</option></select></div></div>'+
     '<div class="row"><div><label for="d">Sides</label><select id="d"><option value="single">Single-sided</option><option value="double">Double-sided</option></select></div><div><label for="o">Orientation</label><select id="o"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></div><div><label for="c">Copies</label><input id="c" type="number" min="1" value="1" inputmode="numeric"></div></div>'+
     (cfg.extras.length?'<label>Additional services</label>'+cfg.extras.map(x=>'<label class="chk"><input type="checkbox" class="ex" value="'+E(x)+'">'+E(x)+'</label>').join(''):'')+
     '<label for="i">Special instructions</label><textarea id="i" rows="3"></textarea></div><div class="err" id="er" role="alert"></div><button id="go">Submit printing request</button>');
     if(last)$('#chk').onclick=()=>{conn.send({t:'track',token:last.token})};
     const dz=$('#dz');['dragenter','dragover'].forEach(v=>dz.addEventListener(v,e=>{e.preventDefault();dz.classList.add('over')}));['dragleave','drop'].forEach(v=>dz.addEventListener(v,e=>{e.preventDefault();dz.classList.remove('over')}));dz.addEventListener('drop',e=>{if(e.dataTransfer.files.length){$('#f').files=e.dataTransfer.files;$('#f').dispatchEvent(new Event('change'))}});
-    $('#f').onchange=e=>{for(const f of e.target.files){
-      if(!ALLOWED[ext(f.name)]){$('#er').textContent='This file type is not supported.';continue}
-      if(f.size>(+cfg.max_mb)*1048576){$('#er').textContent=f.name+' is too large.';continue}
-      if(files.length<10)files.push({file:f,state:'ready'})}e.target.value='';list()};
+    $('#f').onchange=e=>{const er=$('#er');er.textContent='';let skip=0;
+      for(const f of [...e.target.files]){
+        if(!ALLOWED[ext(f.name)]){er.textContent=f.name+': this file type is not supported.';continue}
+        if(f.size>(+cfg.max_mb)*1048576){er.textContent=f.name+' is too large (max '+cfg.max_mb+' MB).';continue}
+        if(files.some(x=>x.file.name===f.name&&x.file.size===f.size))continue;
+        if(files.length<10)files.push({file:f,state:'ready'});else skip++}
+      if(skip)er.textContent='Only 10 files are allowed. '+skip+' file(s) were not added.';e.target.value='';list()};
     $('#go').onclick=submit;
   }
-  function list(){$('#fl').innerHTML=files.map((f,i)=>'<p><b>'+E(f.file.name)+'</b> <span class="muted">'+(f.file.size/1024).toFixed(0)+' KB - '+E(f.state)+'</span> '+(busy?'':'<button class="sec" data-i="'+i+'">Remove</button>')+'</p>').join('');
-    document.querySelectorAll('#fl button').forEach(b=>b.onclick=()=>{files.splice(+b.dataset.i,1);list()})}
+  function list(){$('#fl').innerHTML=files.map((f,i)=>{const x=ext(f.file.name),img=/^(jpg|jpeg|png)$/.test(x);if(!f.url)f.url=URL.createObjectURL(f.file);
+      return'<div class="fi">'+(img?'<img class="th" src="'+f.url+'" alt="">':'<b class="th ex">'+E(x.toUpperCase())+'</b>')+'<span>'+E(f.file.name)+'<br><small class="muted">'+(f.file.size/1024).toFixed(0)+' KB - '+E(f.state)+'</small></span><button class="sec sm" data-pv="'+i+'">Preview</button>'+(busy?'':'<button class="bad sm" data-i="'+i+'">Remove</button>')+'</div>'}).join('');
+    document.querySelectorAll('#fl [data-i]').forEach(b=>b.onclick=()=>{URL.revokeObjectURL(files[+b.dataset.i].url);files.splice(+b.dataset.i,1);list()});
+    document.querySelectorAll('#fl [data-pv]').forEach(b=>b.onclick=()=>preview(+b.dataset.pv))}
+  function preview(i){const f=files[i],x=ext(f.file.name),m=document.createElement('div');m.className='modal';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');
+    const body=/^(jpg|jpeg|png)$/.test(x)?'<img src="'+f.url+'" alt="'+E(f.file.name)+'">':x==='pdf'?'<iframe src="'+f.url+'" title="Preview"></iframe>':'<p class="center">Preview is not available for Word files. They will be sent to the shop as they are.</p>';
+    m.innerHTML='<div class="mbox"><div class="mh"><b>'+E(f.file.name)+'</b>'+(x==='pdf'?'<a class="btn sec sm" target="_blank" rel="noopener" href="'+f.url+'">Open in new tab</a>':'')+'<button class="sec sm" id="mx">Close</button></div><div class="mb">'+body+'</div></div>';
+    document.body.appendChild(m);const kd=e=>{if(e.key==='Escape')cl()},cl=()=>{m.remove();document.removeEventListener('keydown',kd)};
+    m.querySelector('#mx').onclick=cl;m.onclick=e=>{if(e.target===m)cl()};document.addEventListener('keydown',kd);m.querySelector('#mx').focus()}
   const waitFor=(type,ms=60000)=>new Promise((ok,no)=>{const t=setTimeout(()=>{conn.off('data',h);no(new Error('timeout'))},ms);const h=m=>{if(m.t===type||m.t==='reject'){clearTimeout(t);conn.off('data',h);m.t==='reject'?no(new Error(m.error)):ok(m)}};conn.on('data',h)});
   async function submit(){
     if(busy)return;const er=$('#er');er.textContent='';
