@@ -54,6 +54,7 @@ button.sm,.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}button:disable
 @media(max-width:700px){.dg,.sg{grid-template-columns:1fr}.orow{grid-template-columns:1fr auto}.orow>:nth-child(2),.orow>:nth-child(3){grid-column:1/-1}.orow>:nth-child(4){grid-row:1;grid-column:2}}
 @media print{body *{visibility:hidden}#qrcard,#qrcard *{visibility:visible}#qrcard{position:absolute;left:0;top:0;width:100%;border:0}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.sw .trk{width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.35);position:relative;flex:none}.sw .trk i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}.sw.on .trk{background:#3ddc84}.sw.on .trk i{left:18px}
 </style>
 </head>
 <body>
@@ -95,7 +96,7 @@ const ic=n=>'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke=
 function brand(c,m){const l=safeImg(c.logo),t=String(c.phone||'').trim(),a=String(c.address||'').trim(),w=dg(c.whatsapp),tl='tel:'+E(t.replace(/[^\d+]/g,''));
  const meta=(a?'<p class="meta">'+ic('pin')+'<span>'+E(a)+'</span></p>':'')+(t?'<p class="meta">'+ic('ph')+'<a href="'+tl+'">'+E(t)+'</a></p>':'')||(m==='own'?'<p class="meta"><a href="#" id="hint">Add your address and phone in Settings</a></p>':'');
  const acts=m==='cust'?(t?'<a class="btn gh" href="'+tl+'">'+ic('ph')+'Call</a>':'')+(w?'<a class="btn wa" target="_blank" rel="noopener" href="https://wa.me/'+w+'">'+ic('wa')+'WhatsApp</a>':'')+(a?'<a class="btn gh" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query='+encodeURIComponent(a)+'">'+ic('nav')+'Directions</a>':''):
-  '<span class="chip" id="dot"></span><button class="gh" id="bell" aria-label="Notifications">'+ic('bell')+'<span class="bdg" id="ub" hidden>0</span></button><button class="gh" id="lo">'+ic('out')+'Log out</button>';
+  '<span class="chip" id="dot"></span><button class="gh sw" id="sw" role="switch" aria-checked="true" aria-label="Accept customer requests"><span class="trk"><i></i></span><span id="swt">Open</span></button><button class="gh" id="bell" aria-label="Notifications">'+ic('bell')+'<span class="bdg" id="ub" hidden>0</span></button><button class="gh" id="lo">'+ic('out')+'Log out</button>';
  return'<div class="brand"><div class="bin '+m+'"><div class="logo">'+(l?'<img src="'+l+'" alt="">':'<b>'+ini(c.shop_name)+'</b>')+'</div><div class="bi"><h1>'+E(c.shop_name)+'</h1>'+meta+'</div><div class="acts">'+acts+'</div></div></div><div class="cmyk" aria-hidden="true"><i></i><i></i><i></i><i></i></div>'}
 const beep=()=>{try{const a=new AudioContext(),o=a.createOscillator();o.connect(a.destination);o.frequency.value=880;o.start();o.stop(a.currentTime+.25)}catch{}};
 addEventListener('offline',()=>alert('Connection Lost'));
@@ -114,6 +115,7 @@ function customer(){
     conn.on('open',()=>conn.send({t:'hello'}));
     conn.on('close',()=>{if(!busy)closed()});
     conn.on('data',m=>{
+      if(m.t==='closed'){clearTimeout(timer);closed()}
       if(m.t==='cfg'){clearTimeout(timer);cfg=m;form()}
       if(m.t==='status'&&$('#st'))$('#st').innerHTML=m.ok?'Status: <span class="pill st-'+E(m.status)+'">'+E(ST[m.status]||m.status)+'</span>':'Order not found';
     })});
@@ -162,7 +164,10 @@ const DB=new Promise((ok,no)=>{const r=indexedDB.open('printdesk',1);r.onupgrade
 const tx=async(mode,f)=>{const d=await DB;return new Promise((ok,no)=>{const t=d.transaction('orders',mode),r=f(t.objectStore('orders'));t.oncomplete=()=>ok(r.result);t.onerror=()=>no(t.error)})};
 const allO=()=>tx('readonly',s=>s.getAll()),getO=id=>tx('readonly',s=>s.get(id)),putO=o=>tx('readwrite',s=>s.put(o));
 const log=(o,msg)=>{o.log.unshift({t:Date.now(),m:msg})};
-let view='orders',unread=0,peerOK=false;
+let view='orders',unread=0,peerOK=false,peerMsg='Connecting...';
+const shopOpen=()=>localStorage.pd_open!=='0';
+const live=()=>{const d=$('#dot');if(!d)return;const o=shopOpen();d.innerHTML='<span class="dot'+(peerOK&&o?' on':'')+'" style="'+(peerOK&&!o?'background:#f5b800':'')+'"></span>'+(!peerOK?peerMsg:o?'Receiving requests':'Closed to customers')};
+const swUI=()=>{const w=$('#sw');if(w){const o=shopOpen();w.setAttribute('aria-checked',o);w.classList.toggle('on',o);$('#swt').textContent=o?'Open':'Closed'}};
 
 async function admin(){
   const app=$('#app');
@@ -177,15 +182,17 @@ async function admin(){
   startPeer();shell();go('orders');
 }
 function startPeer(){
-  const peer=new Peer(localStorage.pd_id);
-  const dot=()=>{if($('#dot'))$('#dot').innerHTML='<span class="dot'+(peerOK?' on':'')+'"></span>'+(peerOK?'Receiving requests':'Offline')};
-  peer.on('open',()=>{peerOK=true;dot()});
-  peer.on('disconnected',()=>{peerOK=false;dot();setTimeout(()=>peer.reconnect(),3000)});
-  peer.on('error',e=>{peerOK=false;dot();if(e.type==='unavailable-id')alert('PrintDesk is already open in another tab or window. Close it first.')});
-  peer.on('connection',c=>{let n=0;c.on('data',async m=>{try{
+  let peer,tries=0,tm;const again=ms=>{clearTimeout(tm);tm=setTimeout(make,ms)};
+  const make=()=>{
+  const p=peer=new Peer(localStorage.pd_id);
+  p.on('open',()=>{tries=0;peerOK=true;live()});
+  p.on('disconnected',()=>{peerOK=false;peerMsg='Reconnecting...';live();setTimeout(()=>{if(!p.destroyed)p.reconnect()},3000)});
+  p.on('error',e=>{if(e.type==='unavailable-id'){tries++;peerOK=false;peerMsg=tries>4?'Open in another tab? Retrying...':'Reconnecting...';live();p.destroy();again(tries>4?15000:4000)}
+    else if(/^(network|server-error|socket-error|socket-closed)$/.test(e.type)){peerOK=false;peerMsg='Reconnecting...';live();p.destroy();again(5000)}});
+  p.on('connection',c=>{let n=0;c.on('data',async m=>{try{
     const cfg=CFG();
-    if(m.t==='hello')return c.send({t:'cfg',shop_name:cfg.shop_name,welcome:cfg.welcome,phone:cfg.phone,whatsapp:cfg.whatsapp,address:cfg.address,logo:safeImg(cfg.logo),max_mb:cfg.max_mb,extras:svc(cfg)});
-    if(m.t==='order'){
+    if(m.t==='hello')return !shopOpen()?c.send({t:'closed'}):c.send({t:'cfg',shop_name:cfg.shop_name,welcome:cfg.welcome,phone:cfg.phone,whatsapp:cfg.whatsapp,address:cfg.address,logo:safeImg(cfg.logo),max_mb:cfg.max_mb,extras:svc(cfg)});
+    if(m.t==='order'){if(!shopOpen())return c.send({t:'reject',error:'The shop is closed right now.'});
       const d=m.order||{},name=String(d.name||'').trim().slice(0,80),phone=String(d.phone||'').replace(/[^\d+]/g,'').slice(0,16),count=+m.count;
       if(++n>5||!name||phone.length<7||!(count>=1&&count<=10))return c.send({t:'reject',error:'Invalid request.'});
       const pick=(v,a,df)=>a.includes(v)?v:df,day=new Date().toISOString().slice(0,10).replace(/-/g,''),k='pd_seq_'+day,seq=(+localStorage[k]||0)+1;localStorage[k]=seq;
@@ -202,6 +209,7 @@ function startPeer(){
       o.files.push({name:nm,size:m.data.byteLength,added:Date.now(),blob:new Blob([m.data],{type:ALLOWED[e]})});o.updated=Date.now();await putO(o);c.send({t:'ack',i:m.i});refresh();return}
     if(m.t==='track'){const o=(await allO()).find(x=>x.token===m.token);return c.send(o?{t:'status',ok:true,status:o.status}:{t:'status',ok:false})}
   }catch(e){console.error(e);try{c.send({t:'reject',error:'Something went wrong.'})}catch{}}})});
+  };make();addEventListener('online',()=>{if(!peerOK){clearTimeout(tm);try{peer.destroy()}catch{}make()}});
 }
 const badge=()=>{const b=$('#ub');if(b){b.textContent=unread;b.hidden=!unread}};
 function shell(){
@@ -212,7 +220,7 @@ function shell(){
   $('#bell').onclick=()=>{unread=0;badge();if('Notification'in window)Notification.requestPermission();go('orders')};
   $('#lo').onclick=()=>{sessionStorage.clear();location.reload()};
   if($('#hint'))$('#hint').onclick=e=>{e.preventDefault();go('settings')};
-  $('#dot').innerHTML='<span class="dot'+(peerOK?' on':'')+'"></span>'+(peerOK?'Receiving requests':'Connecting...');badge();
+  $('#sw').onclick=()=>{localStorage.pd_open=shopOpen()?'0':'1';swUI();live()};live();swUI();badge();
 }
 const go=v=>{view=v;document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.v===v?'page':'false'));$('#stats').hidden=v!=='orders';({orders,qr,settings}[v])()};
 async function refresh(){badge();stats();if(view==='orders'&&!$('#detail'))orders();else if($('#detail'))detail($('#detail').dataset.id)}
