@@ -4,19 +4,60 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PrintDesk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#14213d">
 <style>
-*{box-sizing:border-box}body{margin:0;font:16px system-ui,sans-serif;background:#f5f6f8;color:#1b2430}main{max-width:960px;margin:0 auto;padding:14px}
-.card{background:#fff;border:1px solid #e1e5ea;border-radius:12px;padding:16px;margin:12px 0}h1{font-size:22px;margin:6px 0}h2{font-size:17px;margin:0 0 10px}
-label{display:block;font-size:14px;font-weight:600;margin:10px 0 4px}input,select,textarea,button{font:inherit;width:100%;padding:12px;border:1px solid #c5ccd6;border-radius:8px;min-height:44px;background:#fff;color:inherit}
-button{background:#1f5fd6;color:#fff;border:0;font-weight:600;cursor:pointer;width:auto;padding:10px 16px}button.sec{background:#e8ecf2;color:#1b2430}button:disabled{opacity:.5}
-:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}.row>*{flex:1;min-width:120px}
-.err{color:#b42318;font-size:14px;min-height:20px}.muted{color:#5b6675;font-size:14px}.pill{background:#e8ecf2;border-radius:99px;padding:2px 10px;font-size:13px}
-table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;border-bottom:1px solid #e8ecf2;text-align:left}.tw{overflow-x:auto}
-.chk{display:flex;align-items:center;gap:8px;font-weight:400}.chk input{width:auto;min-height:0}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#b42318;margin-right:6px}.dot.on{background:#16a34a}
-@media print{body *{visibility:hidden}#qrcard,#qrcard *{visibility:visible}#qrcard{position:absolute;left:0;top:0;width:100%;text-align:center}}
+:root{--ink:#14213d;--c:#0877b0;--m:#c2255c;--g:#168a45;--r:#b42318;--line:#dbe2ea;--mu:#566377;--d:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;font:16px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;background:#f2f5f9;color:#17202e}
+main{max-width:980px;margin:0 auto;padding:0 14px 40px}
+h1,h2,h3{font-family:var(--d)}h1{font-size:24px;margin:6px 0}h2{font-size:18px;margin:0 0 10px}h3{font-size:16px;margin:0 0 10px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}
+label{display:block;font-size:14px;font-weight:600;margin:14px 0 6px}
+input,select,textarea,button{font:inherit;padding:11px 12px;border:1px solid #c3ccd8;border-radius:10px;min-height:46px;background:#fff;color:inherit}
+input,select,textarea{width:100%}
+button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--c);color:#fff;border:0;font-weight:600;cursor:pointer;padding:10px 16px;text-decoration:none;border-radius:10px;min-height:44px}
+button.sec,.btn.sec{background:#e4eaf2;color:#17202e}.btn.wa{background:var(--g)}button.bad{background:#fff;color:var(--r);border:1px solid #e7b4af}
+.gh{background:rgba(255,255,255,.14)!important;color:#fff!important;border:1px solid rgba(255,255,255,.3)!important}
+button.sm,.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}button:disabled{opacity:.5}
+:focus-visible{outline:3px solid var(--c);outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}.row>*{flex:1;min-width:120px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.brand{background:var(--ink);color:#fff}.brand :focus-visible{outline-color:#fff}
+.bin{max-width:980px;margin:0 auto;padding:16px 14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.cmyk{display:flex;height:6px}.cmyk i{flex:1}.cmyk i:nth-child(1){background:#00aeef}.cmyk i:nth-child(2){background:#ec008c}.cmyk i:nth-child(3){background:#fff200}.cmyk i:nth-child(4){background:#000}
+.logo{width:60px;height:60px;border-radius:14px;background:#fff;overflow:hidden;flex:none}.logo img{width:100%;height:100%;object-fit:contain;padding:5px}
+.logo b{display:grid;place-items:center;height:100%;background:var(--c);color:#fff;font:700 26px var(--d)}.logo.big{width:84px;height:84px;border:1px solid var(--line)}
+.bi{flex:1;min-width:180px}.bi h1{margin:0 0 4px;font-size:26px;line-height:1.1;overflow-wrap:anywhere}
+.meta{display:flex;gap:6px;align-items:center;margin:2px 0;font-size:14px;color:#cbd5e8}.meta a{color:#fff}
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.cust .acts{flex-basis:100%}.own .acts{margin-left:auto}
+.chip{padding:6px 12px;border-radius:99px;background:rgba(255,255,255,.14);font-size:14px;font-weight:600}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff6b6b;margin-right:6px}.dot.on{background:#3ddc84}
+.bdg{background:var(--m);color:#fff;border-radius:10px;padding:0 6px;font-size:12px}
+.intro{font-size:17px;margin:18px 0 4px}.muted{color:var(--mu);font-size:14px}.err{color:var(--r);font-size:14px;min-height:20px;font-weight:600}
+.chk{display:flex;align-items:center;gap:8px;font-weight:400}.chk input{width:auto;min-height:0}.center{text-align:center}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-top:14px;overflow-x:auto}
+.tabs button{background:none;color:var(--mu);border-radius:0;border-bottom:3px solid transparent;min-height:48px}.tabs button[aria-current=page]{color:var(--ink);border-color:var(--c)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:14px 0}
+.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}.stat span{font-size:13px;color:var(--mu)}.stat b{display:block;font:700 28px/1.1 var(--d)}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.bar>*{flex:1;min-width:160px}
+.orow{display:grid;grid-template-columns:1.2fr 1.2fr 1.6fr auto;gap:6px 14px;align-items:center;padding:14px 16px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-top:8px;color:inherit;text-decoration:none}
+.orow.new{border-left:4px solid var(--m)}.orow:hover{border-color:var(--c)}.orow b,.orow .muted{display:block}
+.tag{display:inline-block;background:#eef2f7;border-radius:6px;padding:2px 8px;font-size:13px;font-weight:600;margin:0 6px 4px 0}
+.pill{display:inline-block;border-radius:99px;padding:3px 12px;font-size:13px;font-weight:700;background:#e4eaf2;color:#3b4656;white-space:nowrap}
+.st-new{background:#fde7ef;color:#9d1c4a}.st-review,.st-hold{background:#fff3cd;color:#7a5600}.st-accepted,.st-payment{background:#dff1fa;color:#065f8d}
+.st-production{background:var(--ink);color:#fff}.st-ready{background:#dcf3e5;color:#0f6b36}.st-rejected,.st-cancelled{background:#fbe4e1;color:#912018}
+.dg,.sg{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.full{grid-column:1/-1}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:0 0 12px}.kv dt{color:var(--mu);font-size:14px}.kv dd{margin:0;font-weight:600;overflow-wrap:anywhere;white-space:pre-wrap}
+.fi{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line)}.fi span{flex:1;min-width:140px;font-weight:600;overflow-wrap:anywhere}
+.tl{margin:0;padding:0 0 0 18px;border-left:2px solid var(--line);list-style:none}.tl li{padding:0 0 10px 6px}
+@media(max-width:700px){.dg,.sg{grid-template-columns:1fr}.orow{grid-template-columns:1fr auto}.orow>:nth-child(2),.orow>:nth-child(3){grid-column:1/-1}.orow>:nth-child(4){grid-row:1;grid-column:2}}
+@media print{body *{visibility:hidden}#qrcard,#qrcard *{visibility:visible}#qrcard{position:absolute;left:0;top:0;width:100%;border:0}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
+<div id="hdr"></div>
 <main id="app">Loading...</main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -35,10 +76,27 @@ const ST={new:'New',review:'Under Review',accepted:'Accepted',payment:'Payment P
 const FLOW={new:['review','rejected','cancelled'],review:['accepted','rejected','cancelled','hold'],accepted:['payment','production','cancelled','hold'],payment:['production','cancelled'],production:['ready','hold'],ready:['completed'],hold:['review','accepted','production','cancelled'],completed:[],rejected:[],cancelled:[]};
 const rnd=n=>[...crypto.getRandomValues(new Uint8Array(n))].map(b=>b.toString(16).padStart(2,'0')).join('');
 const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
-const DEF={shop_name:'My Print Shop',welcome:'Upload your documents and submit your printing requirements.',phone:'',whatsapp:'',address:'',currency:'Rs.',max_mb:'20',
- prices:'{"bw|A4":10,"color|A4":30,"bw|A3":20,"color|A3":60,"photo|A4":80}',extras:'{"Spiral binding":0,"Lamination":0,"Stapling":0}'};
+const DEF={shop_name:'My Print Shop',welcome:'Upload your documents and submit your printing requirements.',phone:'',whatsapp:'',address:'',logo:'',cc:'92',max_mb:'20',extras:'Spiral binding\nLamination\nStapling'};
 const CFG=()=>({...DEF,...JSON.parse(localStorage.pd_cfg||'{}')});
-const money=o=>{const total=Math.max(o.subtotal-o.discount,0);return{total,balance:Math.max(total-o.paid,0),pay:o.paid<=0?'Unpaid':(o.paid>=total&&total>0?'Paid':'Partially Paid')}};
+const svc=c=>{try{const j=JSON.parse(c.extras);if(Array.isArray(j))return j.map(String);if(j&&typeof j==='object')return Object.keys(j)}catch{}return String(c.extras||'').split('\n').map(x=>x.trim()).filter(Boolean)};
+const dg=s=>String(s??'').replace(/\D/g,'');
+const safeImg=s=>/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+\/=]+$/.test(s||'')?s:'';
+const waNum=p=>{let d=dg(p);if(d.startsWith('00'))d=d.slice(2);else if(d[0]==='0')d=dg(CFG().cc)+d.slice(1);return d};
+const fmt=t=>new Date(t).toLocaleString([],{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
+const ini=n=>E((String(n).trim().match(/[\p{L}\p{N}]/u)||['?'])[0].toUpperCase());
+const TY={bw:'Black & White',color:'Color',photo:'Photo',other:'Other'};
+const I={ph:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+ wa:'<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
+ pin:'<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',nav:'<polygon points="3 11 22 2 13 21 11 13 3 11"/>',
+ bell:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+ out:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>'};
+const ic=n=>'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+I[n]+'</svg>';
+/* Shop header used on both customer ('cust') and owner ('own') sides */
+function brand(c,m){const l=safeImg(c.logo),t=String(c.phone||'').trim(),a=String(c.address||'').trim(),w=dg(c.whatsapp),tl='tel:'+E(t.replace(/[^\d+]/g,''));
+ const meta=(a?'<p class="meta">'+ic('pin')+'<span>'+E(a)+'</span></p>':'')+(t?'<p class="meta">'+ic('ph')+'<a href="'+tl+'">'+E(t)+'</a></p>':'')||(m==='own'?'<p class="meta"><a href="#" id="hint">Add your address and phone in Settings</a></p>':'');
+ const acts=m==='cust'?(t?'<a class="btn gh" href="'+tl+'">'+ic('ph')+'Call</a>':'')+(w?'<a class="btn wa" target="_blank" rel="noopener" href="https://wa.me/'+w+'">'+ic('wa')+'WhatsApp</a>':'')+(a?'<a class="btn gh" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query='+encodeURIComponent(a)+'">'+ic('nav')+'Directions</a>':''):
+  '<span class="chip" id="dot"></span><button class="gh" id="bell" aria-label="Notifications">'+ic('bell')+'<span class="bdg" id="ub" hidden>0</span></button><button class="gh" id="lo">'+ic('out')+'Log out</button>';
+ return'<div class="brand"><div class="bin '+m+'"><div class="logo">'+(l?'<img src="'+l+'" alt="">':'<b>'+ini(c.shop_name)+'</b>')+'</div><div class="bi"><h1>'+E(c.shop_name)+'</h1>'+meta+'</div><div class="acts">'+acts+'</div></div></div><div class="cmyk" aria-hidden="true"><i></i><i></i><i></i><i></i></div>'}
 const beep=()=>{try{const a=new AudioContext(),o=a.createOscillator();o.connect(a.destination);o.frequency.value=880;o.start();o.stop(a.currentTime+.25)}catch{}};
 addEventListener('offline',()=>alert('Connection Lost'));
 
@@ -47,7 +105,7 @@ function customer(){
   let conn,cfg,files=[],busy=false;
   const app=$('#app');
   const peer=new Peer();
-  const show=(h)=>app.innerHTML=h;
+  const show=(h)=>app.innerHTML=h,head=c=>$('#hdr').innerHTML=brand(c,'cust');
   show('<div class="card">Connecting to the shop...</div>');
   const closed=()=>show('<div class="card"><h1>Shop is currently closed</h1><p>The shop is not receiving requests right now. Please try again during shop hours.</p><button onclick="location.reload()">Retry</button></div>');
   const timer=setTimeout(closed,12000);
@@ -57,12 +115,12 @@ function customer(){
     conn.on('close',()=>{if(!busy)closed()});
     conn.on('data',m=>{
       if(m.t==='cfg'){clearTimeout(timer);cfg=m;form()}
-      if(m.t==='status'&&$('#st'))$('#st').textContent=m.ok?(ST[m.status]||m.status)+(m.total!=null?' - Total '+cfg.currency+' '+m.total+' ('+m.pay+')':''):'Order not found';
+      if(m.t==='status'&&$('#st'))$('#st').innerHTML=m.ok?'Status: <span class="pill st-'+E(m.status)+'">'+E(ST[m.status]||m.status)+'</span>':'Order not found';
     })});
   function form(){
     document.title=cfg.shop_name+' - Print Request';
     const last=JSON.parse(localStorage['pd_last_'+SHOP]||'null');
-    show('<div class="card"><h1>'+E(cfg.shop_name)+'</h1><p class="muted">'+E(cfg.welcome)+'</p></div>'+
+    head(cfg);show('<p class="intro">'+E(cfg.welcome)+'</p>'+
     (last?'<div class="card"><b>Your last request: '+E(last.number)+'</b><p id="st" class="muted"></p><button class="sec" id="chk">Check status</button></div>':'')+
     '<div class="card"><h2>Your details</h2><label for="n">Full name</label><input id="n" autocomplete="name"><label for="p">Mobile / WhatsApp</label><input id="p" type="tel" autocomplete="tel"><label for="e">Email (optional)</label><input id="e" type="email"></div>'+
     '<div class="card"><h2>Files</h2><input id="f" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" aria-label="Choose files"><div id="fl"></div><p class="muted">PDF, JPG, PNG, DOC, DOCX. Max '+E(cfg.max_mb)+' MB each, up to 10 files.</p></div>'+
@@ -126,7 +184,7 @@ function startPeer(){
   peer.on('error',e=>{peerOK=false;dot();if(e.type==='unavailable-id')alert('PrintDesk is already open in another tab or window. Close it first.')});
   peer.on('connection',c=>{let n=0;c.on('data',async m=>{try{
     const cfg=CFG();
-    if(m.t==='hello')return c.send({t:'cfg',shop_name:cfg.shop_name,welcome:cfg.welcome,currency:cfg.currency,max_mb:cfg.max_mb,extras:Object.keys(JSON.parse(cfg.extras))});
+    if(m.t==='hello')return c.send({t:'cfg',shop_name:cfg.shop_name,welcome:cfg.welcome,phone:cfg.phone,whatsapp:cfg.whatsapp,address:cfg.address,logo:safeImg(cfg.logo),max_mb:cfg.max_mb,extras:svc(cfg)});
     if(m.t==='order'){
       const d=m.order||{},name=String(d.name||'').trim().slice(0,80),phone=String(d.phone||'').replace(/[^\d+]/g,'').slice(0,16),count=+m.count;
       if(++n>5||!name||phone.length<7||!(count>=1&&count<=10))return c.send({t:'reject',error:'Invalid request.'});
@@ -142,66 +200,73 @@ function startPeer(){
       const nm=String(m.name||'').replace(/[^\w.\- ()]/g,'_').slice(0,120),e=ext(nm);
       if(!ALLOWED[e]||!(m.data&&m.data.byteLength)||m.data.byteLength>(+cfg.max_mb)*1048576)return c.send({t:'reject',error:'This file type is not supported.'});
       o.files.push({name:nm,size:m.data.byteLength,added:Date.now(),blob:new Blob([m.data],{type:ALLOWED[e]})});o.updated=Date.now();await putO(o);c.send({t:'ack',i:m.i});refresh();return}
-    if(m.t==='track'){const o=(await allO()).find(x=>x.token===m.token);if(!o)return c.send({t:'status',ok:false});const mo=money(o);return c.send({t:'status',ok:true,status:o.status,total:o.subtotal>0?mo.total:null,pay:mo.pay})}
+    if(m.t==='track'){const o=(await allO()).find(x=>x.token===m.token);return c.send(o?{t:'status',ok:true,status:o.status}:{t:'status',ok:false})}
   }catch(e){console.error(e);try{c.send({t:'reject',error:'Something went wrong.'})}catch{}}})});
 }
+const badge=()=>{const b=$('#ub');if(b){b.textContent=unread;b.hidden=!unread}};
 function shell(){
   const cfg=CFG();document.title=cfg.shop_name+' - Dashboard';
-  $('#app').innerHTML='<div class="row" style="align-items:center"><h1 style="flex:3">'+E(cfg.shop_name)+'</h1><span id="dot" class="muted"></span><button class="sec" id="bell">🔔 <span id="ub">0</span></button><button class="sec" id="lo">Logout</button></div><div class="row" id="nav" style="margin-top:8px"></div><div id="stats" class="row"></div><div id="v"></div>';
-  $('#nav').innerHTML=[['orders','Orders'],['qr','QR Code'],['settings','Settings']].map(t=>'<button class="sec" data-v="'+t[0]+'">'+t[1]+'</button>').join('');
-  document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
-  $('#bell').onclick=()=>{unread=0;$('#ub').textContent=0;if('Notification'in window)Notification.requestPermission();go('orders')};
+  $('#hdr').innerHTML=brand(cfg,'own');
+  $('#app').innerHTML='<nav class="tabs" aria-label="Sections">'+[['orders','Orders'],['qr','QR Code'],['settings','Settings']].map(t=>'<button data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</nav><div id="stats" class="stats"></div><div id="v"></div>';
+  document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+  $('#bell').onclick=()=>{unread=0;badge();if('Notification'in window)Notification.requestPermission();go('orders')};
   $('#lo').onclick=()=>{sessionStorage.clear();location.reload()};
-  $('#dot').innerHTML='<span class="dot'+(peerOK?' on':'')+'"></span>'+(peerOK?'Receiving requests':'Connecting...');
+  if($('#hint'))$('#hint').onclick=e=>{e.preventDefault();go('settings')};
+  $('#dot').innerHTML='<span class="dot'+(peerOK?' on':'')+'"></span>'+(peerOK?'Receiving requests':'Connecting...');badge();
 }
-const go=v=>{view=v;({orders,qr,settings}[v])()};
-async function refresh(){if($('#ub'))$('#ub').textContent=unread;stats();if(view==='orders'&&!$('#detail'))orders();else if($('#detail'))detail($('#detail').dataset.id,true)}
-async function stats(){const a=await allO(),c=s=>a.filter(o=>o.status===s).length,t0=new Date().setHours(0,0,0,0),cur=CFG().currency;
-  const today=a.flatMap(o=>o.payments).filter(p=>p.t>=t0).reduce((s,p)=>s+p.amount,0);
-  $('#stats').innerHTML=[['New',c('new')],['In Production',c('production')],['Ready',c('ready')],['Orders today',a.filter(o=>o.created>=t0).length],["Today's payments",cur+' '+today],['Customers',new Set(a.map(o=>o.customer.phone)).size]].map(s=>'<div class="card"><div class="muted">'+s[0]+'</div><h1>'+E(s[1])+'</h1></div>').join('')}
+const go=v=>{view=v;document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current',b.dataset.v===v?'page':'false'));$('#stats').hidden=v!=='orders';({orders,qr,settings}[v])()};
+async function refresh(){badge();stats();if(view==='orders'&&!$('#detail'))orders();else if($('#detail'))detail($('#detail').dataset.id)}
+async function stats(){const a=await allO(),c=s=>a.filter(o=>o.status===s).length,t0=new Date().setHours(0,0,0,0);
+  $('#stats').innerHTML=[['New',c('new')],['In production',c('production')],['Ready',c('ready')],['Orders today',a.filter(o=>o.created>=t0).length],['Customers',new Set(a.map(o=>o.customer.phone)).size]].map(s=>'<div class="stat"><span>'+s[0]+'</span><b>'+E(s[1])+'</b></div>').join('')}
 async function orders(){
-  const s=$('#s')?.value||'',q=($('#q')?.value||'').toLowerCase();
-  const list=(await allO()).sort((a,b)=>b.created-a.created).filter(o=>(!s||o.status===s)&&(o.number.toLowerCase().includes(q)||o.customer.name.toLowerCase().includes(q)||o.customer.phone.includes(q)));
-  $('#v').innerHTML='<div class="row"><input id="q" placeholder="Search order #, name, phone" value="'+E(q)+'" aria-label="Search"><select id="s" aria-label="Status"><option value="">All statuses</option>'+Object.entries(ST).map(x=>'<option value="'+x[0]+'"'+(x[0]===s?' selected':'')+'>'+x[1]+'</option>').join('')+'</select></div><div class="card tw"><table><tr><th>Order</th><th>Customer</th><th>Requirements</th><th>Amount</th><th>Payment</th><th>Status</th></tr>'+
-  (list.map(o=>{const m=money(o);return'<tr><td><a href="#" data-id="'+o.id+'">'+E(o.number)+'</a><br><span class="muted">'+new Date(o.created).toLocaleString()+'</span></td><td>'+E(o.customer.name)+'<br><span class="muted">'+E(o.customer.phone)+'</span></td><td>'+o.files.length+'/'+o.expected+' file(s), '+o.opts.size+' '+o.opts.type+', '+o.opts.copies+' copies</td><td>'+m.total+'</td><td>'+m.pay+'</td><td><span class="pill">'+ST[o.status]+'</span></td></tr>'}).join('')||'<tr><td colspan="6">No orders yet.</td></tr>')+'</table></div>';
+  $('#stats').hidden=false;
+  const keep=document.activeElement&&document.activeElement.id==='q',s=$('#s')?.value||'',q=($('#q')?.value||'').toLowerCase();
+  const all=await allO(),list=all.sort((a,b)=>b.created-a.created).filter(o=>(!s||o.status===s)&&(o.number.toLowerCase().includes(q)||o.customer.name.toLowerCase().includes(q)||o.customer.phone.includes(q)));
+  $('#v').innerHTML='<div class="bar"><input id="q" type="search" placeholder="Search order #, name, phone" value="'+E(q)+'" aria-label="Search"><select id="s" aria-label="Status"><option value="">All statuses</option>'+Object.entries(ST).map(x=>'<option value="'+x[0]+'"'+(x[0]===s?' selected':'')+'>'+x[1]+'</option>').join('')+'</select></div>'+
+  (list.map(o=>{const p=o.opts;return'<a href="#" class="orow'+(o.status==='new'?' new':'')+'" data-id="'+o.id+'"><div><b>'+E(o.number)+'</b><span class="muted">'+fmt(o.created)+'</span></div><div><b>'+E(o.customer.name)+'</b><span class="muted">'+E(o.customer.phone)+'</span></div><div><span class="tag">'+E(p.size)+'</span><span class="tag">'+E(TY[p.type]||p.type)+'</span><span class="tag">'+E(p.copies)+' copies</span><span class="tag">'+o.files.length+'/'+o.expected+' files</span></div><span class="pill st-'+o.status+'">'+ST[o.status]+'</span></a>'}).join('')||'<div class="card center"><h2>'+(all.length?'No matching orders':'No requests yet')+'</h2><p class="muted">'+(all.length?'Try a different search or status.':'Customers send files by scanning your QR code. Keep this page open during shop hours.')+'</p></div>');
+  if(keep){const i=$('#q');i.focus();try{i.setSelectionRange(q.length,q.length)}catch{}}
   stats();let t;$('#q').oninput=()=>{clearTimeout(t);t=setTimeout(orders,250)};$('#s').onchange=orders;
   document.querySelectorAll('[data-id]').forEach(a=>a.onclick=e=>{e.preventDefault();detail(a.dataset.id)});
 }
-async function detail(id,keep){
-  const o=await getO(id);if(!o)return orders();const c=o.customer,cur=CFG().currency,m=money(o);
-  const draft=keep&&$('#sub')?{sub:$('#sub').value,dis:$('#dis').value}:null;
-  $('#v').innerHTML='<div id="detail" data-id="'+id+'"><button class="sec" id="bk">← Orders</button><div class="card"><h2>'+E(o.number)+' <span class="pill">'+ST[o.status]+'</span></h2><p>'+E(c.name)+' - '+E(c.phone)+' '+E(c.email)+'</p><p>'+o.opts.type+', '+o.opts.size+', '+o.opts.sides+', '+o.opts.orient+', '+o.opts.copies+' copies'+(o.opts.extras.length?', '+E(o.opts.extras.join(', ')):'')+'</p><p>Instructions: '+E(o.instructions||'-')+'</p><div class="row">'+
-  FLOW[o.status].map(s=>'<button data-st="'+s+'">'+ST[s]+'</button>').join('')+(CFG().whatsapp?'<button class="sec" id="wa">WhatsApp customer</button>':'')+'</div></div>'+
-  '<div class="card"><h2>Files ('+o.files.length+'/'+o.expected+')</h2>'+(o.files.map((f,i)=>'<p>'+E(f.name)+' ('+(f.size/1024).toFixed(0)+' KB) <a href="#" data-pv="'+i+'">Preview</a> | <a href="#" data-dl="'+i+'">Download</a></p>').join('')||'<p class="muted">No files.</p>')+(o.files.length?'<button class="sec" id="rm">Delete files from this device</button>':'')+'</div>'+
-  '<div class="card"><h2>Price</h2><div class="row"><div><label for="sub">Price ('+E(cur)+')</label><input id="sub" type="number" min="0" value="'+(draft?draft.sub:o.subtotal)+'"></div><div><label for="dis">Discount</label><input id="dis" type="number" min="0" value="'+(draft?draft.dis:o.discount)+'"></div><div><label for="pg">Pages (estimate)</label><input id="pg" type="number" min="1"></div></div>'+
-  '<p>Total '+cur+' '+m.total+' | Paid '+o.paid+' | Balance '+m.balance+' | '+m.pay+'</p><div class="row"><button id="sv">Save</button><button class="sec" id="est">Estimate from pages</button><button class="sec" id="inv">Print invoice</button></div><div class="err" id="er"></div>'+
-  '<h2>Record payment</h2><div class="row"><input id="am" type="number" min="1" placeholder="Amount"><select id="me"><option>Cash</option><option>Bank Transfer</option><option>Easypaisa</option><option>JazzCash</option><option>Card</option><option>Other</option></select><button id="pay">Add</button></div></div>'+
-  '<div class="card"><h2>Activity</h2>'+o.log.map(l=>'<p class="muted">'+new Date(l.t).toLocaleString()+' - '+E(l.m)+'</p>').join('')+'</div></div>';
+async function detail(id){
+  const o=await getO(id);if(!o)return orders();const c=o.customer,p=o.opts,w=waNum(c.phone);$('#stats').hidden=true;
+  const MAIN={new:'review',review:'accepted',accepted:'production',payment:'production',production:'ready',ready:'completed',hold:'review'},ACT={review:'Start review',accepted:'Accept order',payment:'Mark payment pending',production:'Start production',ready:'Mark ready',completed:'Complete order',rejected:'Reject',cancelled:'Cancel order',hold:'Put on hold'};
+  const kv=a=>'<dl class="kv">'+a.map(x=>'<dt>'+x[0]+'</dt><dd>'+x[1]+'</dd>').join('')+'</dl>',nx=FLOW[o.status];
+  $('#v').innerHTML='<div id="detail" data-id="'+id+'"><div class="btns" style="justify-content:space-between;margin-top:14px"><button class="sec sm" id="bk">← Orders</button><span class="pill st-'+o.status+'">'+ST[o.status]+'</span></div><h2 style="font-size:24px;margin:12px 0 0">'+E(o.number)+'</h2><p class="muted" style="margin:2px 0 0">Received '+fmt(o.created)+'</p><div class="dg">'+
+  '<section class="card full"><h3>Next step</h3>'+(nx.length?'<div class="btns">'+nx.map(s=>'<button class="'+(/^(rejected|cancelled)$/.test(s)?'bad':MAIN[o.status]===s?'':'sec')+'" data-st="'+s+'">'+ACT[s]+'</button>').join('')+'</div>':'<p class="muted">This order is '+ST[o.status].toLowerCase()+'. No further steps.</p>')+'</section>'+
+  '<section class="card"><h3>Customer</h3>'+kv([['Name',E(c.name)],['Mobile',E(c.phone)]].concat(c.email?[['Email',E(c.email)]]:[]))+'<div class="btns"><a class="btn sec sm" href="tel:'+E(c.phone)+'">'+ic('ph')+'Call</a>'+(w?'<a class="btn wa sm" target="_blank" rel="noopener" href="https://wa.me/'+w+'?text='+encodeURIComponent('Hello '+c.name+', your order '+o.number+' at '+CFG().shop_name+' is now: '+ST[o.status]+'.')+'">'+ic('wa')+'WhatsApp</a>':'')+'</div></section>'+
+  '<section class="card"><h3>Print requirements</h3>'+kv([['Type',E(TY[p.type]||p.type)],['Paper size',E(p.size)],['Sides',p.sides==='double'?'Double-sided':'Single-sided'],['Orientation',p.orient==='landscape'?'Landscape':'Portrait'],['Copies',E(p.copies)],['Services',E(p.extras.join(', ')||'None')],['Instructions',E(o.instructions||'None')]])+'</section>'+
+  '<section class="card full"><h3>Files ('+o.files.length+' of '+o.expected+' received)</h3>'+(o.files.map((f,i)=>'<div class="fi"><span>'+E(f.name)+' <small class="muted">'+(f.size/1024).toFixed(0)+' KB</small></span><button class="sec sm" data-pv="'+i+'">Preview</button><button class="sec sm" data-dl="'+i+'">Download</button></div>').join('')||'<p class="muted">No files on this device.</p>')+(o.files.length?'<p><button class="bad sm" id="rm">Delete files from this device</button></p>':'')+'</section>'+
+  '<section class="card full"><h3>Activity</h3><ul class="tl">'+o.log.map(l=>'<li><span class="muted">'+fmt(l.t)+'</span> '+E(l.m)+'</li>').join('')+'</ul></section></div></div>';
   const save=async()=>{o.updated=Date.now();await putO(o);detail(id);stats()};
-  $('#bk').onclick=orders;
-  document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{const s=b.dataset.st;if(!FLOW[o.status].includes(s))return;log(o,'Status '+ST[o.status]+' → '+ST[s]);o.status=s;save()});
+  $('#bk').onclick=()=>orders();
+  document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{const s=b.dataset.st;if(!FLOW[o.status].includes(s))return;if(/^(rejected|cancelled)$/.test(s)&&!confirm(ACT[s]+'? This cannot be undone.'))return;log(o,'Status '+ST[o.status]+' → '+ST[s]);o.status=s;save()});
   const open_=(i,dl)=>{const f=o.files[i],u=URL.createObjectURL(f.blob);if(dl){const a=document.createElement('a');a.href=u;a.download=f.name;a.click()}else open(u);setTimeout(()=>URL.revokeObjectURL(u),60000)};
   document.querySelectorAll('[data-pv]').forEach(a=>a.onclick=e=>{e.preventDefault();open_(+a.dataset.pv,false)});
   document.querySelectorAll('[data-dl]').forEach(a=>a.onclick=e=>{e.preventDefault();open_(+a.dataset.dl,true)});
   if($('#rm'))$('#rm').onclick=()=>{if(confirm('Delete all files of this order from this device? This cannot be undone.')){o.files=[];log(o,'Files deleted');save()}};
-  $('#sv').onclick=()=>{const sub=+$('#sub').value,dis=+$('#dis').value||0;if(!(sub>=0)||dis<0||dis>sub)return $('#er').textContent='Invalid price or discount.';if(sub!==o.subtotal)log(o,'Price changed from '+o.subtotal+' to '+sub);o.subtotal=sub;o.discount=dis;save()};
-  $('#est').onclick=()=>{const u=JSON.parse(CFG().prices)[o.opts.type+'|'+o.opts.size],pg=+$('#pg').value;if(!u||!pg)return $('#er').textContent='No price set for this type/size, or pages missing. Enter the price manually.';$('#sub').value=u*pg*o.opts.copies};
-  $('#pay').onclick=()=>{const a=Math.round(+$('#am').value*100)/100;if(!(a>0))return $('#er').textContent='Enter a valid amount.';o.payments.push({amount:a,method:$('#me').value,t:Date.now()});o.paid+=a;log(o,'Payment '+a+' ('+$('#me').value+')');save()};
-  if($('#wa'))$('#wa').onclick=()=>open('https://wa.me/'+CFG().whatsapp.replace(/\D/g,'')+'?text='+encodeURIComponent('Your order '+o.number+' is '+ST[o.status].toLowerCase()+'. Total: '+cur+' '+m.total+'.'));
-  $('#inv').onclick=()=>{const w=open('');w.document.write('<title>Invoice '+E(o.number)+'</title><body style="font-family:sans-serif;max-width:600px;margin:20px auto"><h1>'+E(CFG().shop_name)+'</h1><p>'+E(CFG().address)+' '+E(CFG().phone)+'</p><h2>Invoice '+E(o.number)+'</h2><p>'+new Date(o.created).toLocaleDateString()+' - '+E(c.name)+'</p><p>'+o.opts.type+' '+o.opts.size+' x '+o.opts.copies+' copies '+E(o.opts.extras.join(', '))+'</p><p>Subtotal '+cur+' '+o.subtotal+'<br>Discount '+o.discount+'<br><b>Total '+cur+' '+m.total+'</b><br>Paid '+o.paid+'<br>Remaining '+m.balance+'</p>');w.document.close();w.print()};
 }
 function qr(){
-  const url=BASE+'?shop='+localStorage.pd_id;
-  $('#v').innerHTML='<div class="card" id="qrcard"><h1>'+E(CFG().shop_name)+'</h1><h2>SCAN TO SEND YOUR PRINTING</h2><div id="qrc" style="display:inline-block"></div><p>Scan • Upload • Submit</p><p class="muted">'+E(url)+'</p></div><div class="row"><button id="pr">Print QR card</button><button class="sec" id="cp">Copy customer link</button></div><p class="muted">Keep this page open during shop hours. Customers can only send files while it is open.</p>';
+  const c=CFG(),url=BASE+'?shop='+localStorage.pd_id,l=safeImg(c.logo);
+  $('#v').innerHTML='<div class="card center" id="qrcard">'+(l?'<img src="'+l+'" alt="" style="height:64px;max-width:200px;object-fit:contain">':'')+'<h1>'+E(c.shop_name)+'</h1><h2>Scan to send your printing</h2><div id="qrc" style="display:inline-block"></div><p><b>Scan • Upload • Submit</b></p>'+(c.address?'<p class="muted">'+E(c.address)+'</p>':'')+(c.phone?'<p class="muted">'+E(c.phone)+'</p>':'')+'</div><div class="card"><div class="btns"><button id="pr">Print QR card</button><button class="sec" id="cp">Copy customer link</button></div><p class="muted" style="overflow-wrap:anywhere">'+E(url)+'</p><p class="muted">Keep this page open during shop hours. Customers can only send files while it is open.</p></div>';
   if(window.QRCode)new QRCode($('#qrc'),{text:url,width:240,height:240});else $('#qrc').textContent='QR library could not load (check internet).';
-  $('#pr').onclick=()=>print();$('#cp').onclick=()=>navigator.clipboard.writeText(url);
+  $('#pr').onclick=()=>print();$('#cp').onclick=async()=>{try{await navigator.clipboard.writeText(url);$('#cp').textContent='Copied'}catch{$('#cp').textContent='Copy failed'}};
 }
 function settings(){
-  const c=CFG(),f=[['shop_name','Shop name'],['welcome','Welcome message'],['phone','Phone'],['whatsapp','WhatsApp number (with country code)'],['address','Address'],['currency','Currency symbol'],['max_mb','Max file size (MB)']];
-  $('#v').innerHTML='<div class="card">'+f.map(x=>'<label for="'+x[0]+'">'+x[1]+'</label><input id="'+x[0]+'" value="'+E(c[x[0]])+'">').join('')+'<label for="prices">Prices per page (JSON, key "type|size")</label><textarea id="prices" rows="4">'+E(c.prices)+'</textarea><label for="extras">Additional services (JSON: name: price)</label><textarea id="extras" rows="3">'+E(c.extras)+'</textarea><div class="err" id="er"></div><button id="sv">Save settings</button></div>';
-  $('#sv').onclick=()=>{const b=Object.fromEntries([...f.map(x=>x[0]),'prices','extras'].map(k=>[k,$('#'+k).value]));
-    try{JSON.parse(b.prices);JSON.parse(b.extras)}catch{return $('#er').textContent='Prices and services must be valid JSON.'}
-    localStorage.pd_cfg=JSON.stringify(b);shell();go('settings');$('#er').textContent='Saved.';}
+  const c=CFG();let logo=safeImg(c.logo);
+  const f=(k,l,t)=>'<label for="'+k+'">'+l+'</label><input id="'+k+'"'+(t?' type="'+t+'"':'')+' value="'+E(c[k])+'">';
+  $('#v').innerHTML='<section class="card"><h2>Shop profile</h2><p class="muted">Shown in the header of the customer page and on your QR card.</p><div class="btns" style="gap:14px"><div class="logo big" id="lp"></div><div class="btns"><button class="sec" id="lu">Upload logo</button><input id="lf" type="file" accept="image/*" hidden><button class="bad" id="lrm">Remove</button></div></div>'+f('shop_name','Shop name')+f('welcome','Welcome message')+'</section>'+
+  '<section class="card"><h2>Contact and location</h2><p class="muted">Customers get Call, WhatsApp and Directions buttons from these details.</p><div class="sg"><div>'+f('phone','Phone number','tel')+'</div><div>'+f('whatsapp','WhatsApp number (with country code)','tel')+'</div></div>'+f('address','Address')+'</section>'+
+  '<section class="card"><h2>Requests</h2><div class="sg"><div>'+f('max_mb','Max file size (MB)','number')+'</div><div>'+f('cc','Country code for customer numbers')+'</div></div><label for="extras">Additional services (one per line)</label><textarea id="extras" rows="4">'+E(svc(c).join('\n'))+'</textarea></section><div class="err" id="er" role="alert"></div><button id="sv">Save settings</button>';
+  const paint=()=>{$('#lp').innerHTML=logo?'<img src="'+logo+'" alt="">':'<b>'+ini(c.shop_name)+'</b>';$('#lrm').hidden=!logo};paint();
+  $('#lu').onclick=()=>$('#lf').click();$('#lrm').onclick=()=>{logo='';paint()};
+  $('#lf').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const u=URL.createObjectURL(f),im=new Image();
+    im.onload=()=>{URL.revokeObjectURL(u);const iw=im.width||256,ih=im.height||256,k=Math.min(1,256/Math.max(iw,ih)),w=Math.round(iw*k),h=Math.round(ih*k),cv=document.createElement('canvas');cv.width=w;cv.height=h;const x=cv.getContext('2d');x.drawImage(im,0,0,w,h);let d=cv.toDataURL('image/png');if(d.length>150000){x.globalCompositeOperation='destination-over';x.fillStyle='#fff';x.fillRect(0,0,w,h);d=cv.toDataURL('image/jpeg',.82)}logo=d;paint();$('#er').textContent='Logo ready. Press Save settings to apply it.'};
+    im.onerror=()=>{URL.revokeObjectURL(u);$('#er').textContent='This image could not be read. Try a PNG or JPG.'};im.src=u};
+  $('#sv').onclick=()=>{const g=k=>$('#'+k).value.trim(),mb=+g('max_mb'),er=$('#er');er.style.color='';
+    if(!g('shop_name'))return er.textContent='Enter your shop name.';if(!(mb>0))return er.textContent='Enter a valid max file size.';
+    try{localStorage.pd_cfg=JSON.stringify({shop_name:g('shop_name'),welcome:g('welcome'),phone:g('phone'),whatsapp:g('whatsapp'),address:g('address'),logo,cc:dg(g('cc')),max_mb:String(mb),extras:$('#extras').value.split('\n').map(x=>x.trim()).filter(Boolean).join('\n')})}catch{return er.textContent='Could not save. The logo may be too large.'}
+    shell();go('settings');$('#er').style.color='var(--g)';$('#er').textContent='Settings saved.'};
 }
 
 SHOP?customer():admin();
