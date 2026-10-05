@@ -84,7 +84,7 @@ const E=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const SHOP=new URLSearchParams(location.search).get('shop');
 const BASE=location.origin+location.pathname;
 /* Cloud connection. Either paste your Supabase Project URL and key below, or enter them on the first-run setup screen. */
-const SBC={url:'',key:''};
+const SBC={url:'https://einznfibylssyjzyazok.supabase.co',key:'sb_publishable_2yIRQGN2DdHx_IEocU9btg_Dz9E8iSm'};
 const qs=new URLSearchParams(location.search);
 if(qs.get('u')&&qs.get('k')){localStorage.pd_u=qs.get('u');localStorage.pd_k=qs.get('k')}
 const SB_URL=SBC.url||localStorage.pd_u||'',SB_KEY=SBC.key||localStorage.pd_k||'';
@@ -236,7 +236,7 @@ async function admin(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session)return form('Shop login','Sign in with the owner email and password you created in Supabase.',[['em','Email','email'],['pw','Password','password']],'Sign in',async b=>{
     const {error}=await sb.auth.signInWithPassword({email:b.em.trim(),password:b.pw});if(error)return error.message;admin()});
-  await loadCfg();await sync();shell();go('orders');setInterval(poll,10000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
+  await loadCfg();await sync();shell();go('orders');setInterval(poll,5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
 }
 const badge=()=>{const b=$('#ub');if(b){b.textContent=unread;b.hidden=!unread}};
 function shell(){
@@ -257,9 +257,13 @@ async function orders(){
   $('#stats').hidden=false;
   const keep=document.activeElement&&document.activeElement.id==='q',s=$('#s')?.value||'',q=($('#q')?.value||'').toLowerCase();
   const all=await allO(),list=all.sort((a,b)=>b.created-a.created).filter(o=>(!s||o.status===s)&&(o.number.toLowerCase().includes(q)||o.customer.name.toLowerCase().includes(q)||o.customer.phone.includes(q)));
-  $('#v').innerHTML='<div class="bar"><input id="q" type="search" placeholder="Search order #, name, phone" value="'+E(q)+'" aria-label="Search"><select id="s" aria-label="Status"><option value="">All statuses</option>'+Object.entries(ST).map(x=>'<option value="'+x[0]+'"'+(x[0]===s?' selected':'')+'>'+x[1]+'</option>').join('')+'</select></div>'+
+  $('#v').innerHTML='<div class="bar"><input id="q" type="search" placeholder="Search order #, name, phone" value="'+E(q)+'" aria-label="Search"><select id="s" aria-label="Status"><option value="">All statuses</option>'+Object.entries(ST).map(x=>'<option value="'+x[0]+'"'+(x[0]===s?' selected':'')+'>'+x[1]+'</option>').join('')+'</select><button class="bad" id="clr">Clear finished</button></div>'+
   (list.map(o=>{const p=o.opts;return'<a href="#" class="orow'+(o.status==='new'?' new':'')+'" data-id="'+o.id+'"><div><b>'+E(o.number)+'</b><span class="muted">'+fmt(o.created)+'</span></div><div><b>'+E(o.customer.name)+'</b><span class="muted">'+E(o.customer.phone)+'</span></div><div><span class="tag">'+E(p.size)+'</span><span class="tag">'+E(TY[p.type]||p.type)+'</span><span class="tag">'+E(p.copies)+' copies</span><span class="tag">'+o.files.length+'/'+o.expected+' files</span></div><span class="pill st-'+o.status+'">'+ST[o.status]+'</span></a>'}).join('')||'<div class="card center"><h2>'+(all.length?'No matching orders':'No requests yet')+'</h2><p class="muted">'+(all.length?'Try a different search or status.':'Customers send files by scanning your QR code.')+'</p></div>');
   if(keep){const i=$('#q');i.focus();try{i.setSelectionRange(q.length,q.length)}catch{}}
+  $('#clr').onclick=async()=>{const d=CACHE.filter(o=>/^(completed|rejected|cancelled)$/.test(o.status));if(!d.length)return alert('No finished orders to clear.');
+    if(!confirm('Delete '+d.length+' finished order(s) (completed, rejected, cancelled) and their files from cloud storage? This cannot be undone.'))return;
+    const paths=d.flatMap(o=>o.files.map(f=>f.path));if(paths.length)await sb.storage.from('uploads').remove(paths);
+    const {error}=await sb.from('orders').delete().in('id',d.map(o=>o.id));if(error)return alert('Could not clear: '+error.message);await sync();refresh()};
   stats();let t;$('#q').oninput=()=>{clearTimeout(t);t=setTimeout(orders,250)};$('#s').onchange=orders;
   document.querySelectorAll('[data-id]').forEach(a=>a.onclick=e=>{e.preventDefault();detail(a.dataset.id)});
 }
