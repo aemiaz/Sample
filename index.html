@@ -145,7 +145,7 @@ function customer(){
   if(!SHOP_ID)return show('<div class="card"><h2>Shop link required</h2><p class="muted">Please scan the shop QR code or open this page with a valid <b>?shop=SHOP_ID</b> link.</p></div>');
   show('<div class="card">Loading shop...</div>');
   (async()=>{try{
-    const {data:shop,error:se}=await sb.from('shops').select('id,shop_name,owner_email,auth_user_id,created_at').eq('id',SHOP_ID).maybeSingle();
+    const {data:shop,error:se}=await sb.from('shops').select('id,shop_name,auth_user_id,created_at').eq('id',SHOP_ID).maybeSingle();
     if(se)throw se;if(!shop)throw new Error('This shop link is invalid or the shop no longer exists.');
     CURRENT_SHOP=shop;CURRENT_SHOP_ID=shop.id;
     const {data:st,error:ste}=await sb.from('settings').select('data').eq('shop_id',shop.id).maybeSingle();
@@ -283,12 +283,12 @@ async function registerShop(){
   $('#ok').disabled=false;$('#ok').textContent='Create Shop';
 }
 async function ensureShop(user,requestedName='',requestedId=''){
-  const {data:existing,error:fe}=await sb.from('shops').select('id,shop_name,owner_email,auth_user_id,created_at').eq('auth_user_id',user.id).maybeSingle();
+  const {data:existing,error:fe}=await sb.from('shops').select('id,shop_name,auth_user_id,created_at').eq('auth_user_id',user.id).maybeSingle();
   if(fe)return {error:fe};
   if(existing){CURRENT_SHOP=existing;CURRENT_SHOP_ID=existing.id;return {shop:existing}};
   const name=(requestedName||user.user_metadata?.shop_name||'My Print Shop').trim();
   let id=requestedId||user.user_metadata?.shop_id||makeShopId(name);
-  const {data:created,error}=await sb.from('shops').insert({id,shop_name:name,owner_email:user.email||'',auth_user_id:user.id}).select('id,shop_name,owner_email,auth_user_id,created_at').single();
+  const {data:created,error}=await sb.from('shops').insert({id,shop_name:name,auth_user_id:user.id}).select('id,shop_name,auth_user_id,created_at').single();
   if(error)return {error};
   CURRENT_SHOP=created;CURRENT_SHOP_ID=created.id;return {shop:created};
 }
