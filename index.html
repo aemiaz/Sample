@@ -81,14 +81,15 @@ button.sm,.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}button:disable
    Files travel phone -> shop computer directly (WebRTC). The shop page must be open to receive. */
 const $=s=>document.querySelector(s);
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const SHOP=new URLSearchParams(location.search).get('shop');
+const SHOP_ID=new URLSearchParams(location.search).get('shop');
 const BASE=location.origin+location.pathname;
 /* Cloud connection. Either paste your Supabase Project URL and key below, or enter them on the first-run setup screen. */
 const SBC={url:'https://einznfibylssyjzyazok.supabase.co',key:'sb_publishable_2yIRQGN2DdHx_IEocU9btg_Dz9E8iSm'};
 const qs=new URLSearchParams(location.search);
 if(qs.get('u')&&qs.get('k')){localStorage.pd_u=qs.get('u');localStorage.pd_k=qs.get('k')}
 const SB_URL=SBC.url||localStorage.pd_u||'',SB_KEY=SBC.key||localStorage.pd_k||'';
-const sb=SB_URL&&window.supabase?supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:!SHOP,autoRefreshToken:!SHOP,detectSessionInUrl:false}}):null;
+const sb=SB_URL&&window.supabase?supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}}):null;
+let CURRENT_SHOP=null,CURRENT_SHOP_ID=SHOP_ID,CURRENT_CFG=null;
 const ALLOWED={pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'};
 if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 async function pdfPages(blob,max,scale,cb){const d=await pdfjsLib.getDocument({data:await blob.arrayBuffer()}).promise,n=Math.min(d.numPages,max);for(let i=1;i<=n;i++){const pg=await d.getPage(i),v=pg.getViewport({scale:scale(pg.getViewport({scale:1}))}),cv=document.createElement('canvas');cv.width=v.width;cv.height=v.height;await pg.render({canvasContext:cv.getContext('2d'),viewport:v}).promise;cb(cv,i)}return d.numPages}
@@ -110,11 +111,13 @@ const FLOW={new:['review','rejected','cancelled'],review:['accepted','rejected',
 const rnd=n=>[...crypto.getRandomValues(new Uint8Array(n))].map(b=>b.toString(16).padStart(2,'0')).join('');
 const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
 const DEF={shop_name:'My Print Shop',welcome:'Upload your documents and submit your printing requirements.',phone:'',whatsapp:'',address:'',hours:'',logo:'',cc:'92',max_mb:'20',extras:'Spiral binding\nLamination\nStapling'};
-const CFG=()=>({...DEF,...JSON.parse(localStorage.pd_cfg||'{}')});
+const CFG=()=>({...DEF,...(CURRENT_CFG||{})});
 const svc=c=>{try{const j=JSON.parse(c.extras);if(Array.isArray(j))return j.map(String);if(j&&typeof j==='object')return Object.keys(j)}catch{}return String(c.extras||'').split('\n').map(x=>x.trim()).filter(Boolean)};
 const dg=s=>String(s??'').replace(/\D/g,'');
 const safeImg=s=>/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+\/=]+$/.test(s||'')?s:'';
 const waNum=p=>{let d=dg(p);if(d.startsWith('00'))d=d.slice(2);else if(d[0]==='0')d=dg(CFG().cc)+d.slice(1);return d};
+const slugify=s=>String(s||'shop').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,45)||'shop';
+const makeShopId=name=>slugify(name)+'-'+rnd(5);
 const fmt=t=>new Date(t).toLocaleString([],{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
 const ini=n=>E((String(n).trim().match(/[\p{L}\p{N}]/u)||['?'])[0].toUpperCase());
 const TY={bw:'Black & White',color:'Color',photo:'Photo',other:'Other'};
@@ -138,13 +141,20 @@ addEventListener('offline',()=>alert('Connection Lost'));
 function customer(){
   let cfg,files=[],busy=false;
   const app=$('#app'),show=h=>app.innerHTML=h,head=c=>$('#hdr').innerHTML=brand(c,'cust');
-  if(!sb)return show('<div class="card"><h2>This link is not set up</h2><p class="muted">Please scan the shop QR code again or ask the shop for a new link.</p></div>');
-  show('<div class="card">Loading...</div>');
-  (async()=>{try{const {data,error}=await sb.from('settings').select('data').eq('id',1).maybeSingle();if(error)throw error;cfg={...DEF,...((data&&data.data)||{})};cfg.extras=svc(cfg);form()}
-    catch(e){console.error(e);show('<div class="card"><h2>Could not reach the shop</h2><p class="muted">Check your internet connection and try again.</p><button onclick="location.reload()">Try again</button></div>')}})();
+  if(!sb)return show('<div class="card"><h2>This link is not set up</h2><p class="muted">Supabase is not configured.</p></div>');
+  if(!SHOP_ID)return show('<div class="card"><h2>Shop link required</h2><p class="muted">Please scan the shop QR code or open this page with a valid <b>?shop=SHOP_ID</b> link.</p></div>');
+  show('<div class="card">Loading shop...</div>');
+  (async()=>{try{
+    const {data:shop,error:se}=await sb.from('shops').select('id,shop_name,owner_email,auth_user_id,created_at').eq('id',SHOP_ID).maybeSingle();
+    if(se)throw se;if(!shop)throw new Error('This shop link is invalid or the shop no longer exists.');
+    CURRENT_SHOP=shop;CURRENT_SHOP_ID=shop.id;
+    const {data:st,error:ste}=await sb.from('settings').select('data').eq('shop_id',shop.id).maybeSingle();
+    if(ste&&ste.code!=='PGRST116')throw ste;
+    cfg={...DEF,...((st&&st.data)||{}),shop_name:shop.shop_name||((st&&st.data)||{}).shop_name||DEF.shop_name};cfg.extras=svc(cfg);CURRENT_CFG=cfg;form()
+  }catch(e){console.error(e);show('<div class="card"><h2>Could not load this shop</h2><p class="muted">'+E(e.message||'Check your internet connection and shop link.')+'</p><button onclick="location.reload()">Try again</button></div>')}})();
   function form(){
     document.title=cfg.shop_name+' - Print Request';
-    const last=JSON.parse(localStorage['pd_last_'+SHOP]||'null');
+    const last=JSON.parse(localStorage['pd_last_'+SHOP_ID]||'null');
     head(cfg);show('<p class="intro">'+E(cfg.welcome)+'</p>'+
     (last?'<div class="card"><b>Your last request: '+E(last.number)+'</b><p id="st" class="muted"></p><button class="sec" id="chk">Check status</button></div>':'')+
     '<div class="card"><h2>Your details</h2><label for="n">Full name</label><input id="n" autocomplete="name"><label for="p">Mobile / WhatsApp</label><input id="p" type="tel" autocomplete="tel"><label for="e">Email (optional)</label><input id="e" type="email"></div>'+
@@ -153,8 +163,12 @@ function customer(){
     '<div class="row"><div><label for="d">Sides</label><select id="d"><option value="single">Single-sided</option><option value="double">Double-sided</option></select></div><div><label for="o">Orientation</label><select id="o"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></div><div><label for="c">Copies</label><input id="c" type="number" min="1" value="1" inputmode="numeric"></div></div>'+
     (cfg.extras.length?'<label>Additional services</label>'+cfg.extras.map(x=>'<label class="chk"><input type="checkbox" class="ex" value="'+E(x)+'">'+E(x)+'</label>').join(''):'')+
     '<label for="i">Special instructions</label><textarea id="i" rows="3"></textarea></div><div class="err" id="er" role="alert"></div><button id="go">Submit printing request</button>');
-    if(last)$('#chk').onclick=async()=>{const {data,error}=await sb.rpc('order_status',{p_token:last.token});$('#st').innerHTML=error||!data?'Order not found':'Status: <span class="pill st-'+E(data)+'">'+E(ST[data]||data)+'</span>'};
-    const dz=$('#dz');['dragenter','dragover'].forEach(v=>dz.addEventListener(v,e=>{e.preventDefault();dz.classList.add('over')}));['dragleave','drop'].forEach(v=>dz.addEventListener(v,e=>{e.preventDefault();dz.classList.remove('over')}));dz.addEventListener('drop',e=>{if(e.dataTransfer.files.length){$('#f').files=e.dataTransfer.files;$('#f').dispatchEvent(new Event('change'))}});
+    if(last)$('#chk').onclick=async()=>{
+      const {data,error}=await sb.rpc('get_order_status',{p_shop_id:SHOP_ID,p_token:last.token});
+      const row=Array.isArray(data)?data[0]:data;
+      $('#st').innerHTML=error||!row?'Order not found':'Status: <span class="pill st-'+E(row.status)+'">'+E(ST[row.status]||row.status)+'</span>'
+    };
+    const dz=$('#dz');['dragenter','dragover'].forEach(v=>dz.addEventListener(v,e=>{e.preventDefault();dz.classList.add('over')}));['dragleave','drop'].forEach(v=>dz.addEventListener(v,e=>{e.preventDefault();dz.classList.remove('over')}));dz.addEventListener('drop',e=>{if(e.dataTransfer.files.length){try{$('#f').files=e.dataTransfer.files}catch{}$('#f').dispatchEvent(new Event('change'))}});
     $('#f').onchange=e=>{const er=$('#er');er.textContent='';let skip=0;
       for(const f of [...e.target.files]){
         if(!ALLOWED[ext(f.name)]){er.textContent=f.name+': this file type is not supported.';continue}
@@ -189,14 +203,15 @@ function customer(){
     const id=crypto.randomUUID?crypto.randomUUID():rnd(16),token=rnd(16),number='PR-'+new Date().toISOString().slice(2,10).replace(/-/g,'')+'-'+rnd(2).toUpperCase(),done=[];
     try{
       for(let i=0;i<files.length;i++){const f=files[i];f.state='uploading...';list();
-        const path=id+'/'+i+'_'+f.file.name.replace(/[^\w.\-]/g,'_').slice(-100);
+        const clean=f.file.name.replace(/[^\w.\-]/g,'_').slice(-100);
+        const path=SHOP_ID+'/'+id+'/'+i+'_'+clean;
         const {error}=await sb.storage.from('uploads').upload(path,f.file,{contentType:ALLOWED[ext(f.file.name)],upsert:false});if(error)throw error;
         done.push({name:f.file.name.slice(0,120),size:f.file.size,path});f.state='sent';list()}
-      const {error}=await sb.from('orders').insert({id,number,token,customer:{name:name.slice(0,80),phone:phone.slice(0,16),email:$('#e').value.trim().slice(0,100)},
+      const {error}=await sb.from('orders').insert({id,shop_id:SHOP_ID,number,token,customer:{name:name.slice(0,80),phone:phone.slice(0,16),email:$('#e').value.trim().slice(0,100)},
         opts:{type:$('#t').value,size:$('#s').value,sides:$('#d').value,orient:$('#o').value,copies:Math.min(Math.max(parseInt($('#c').value)||1,1),10000),extras:[...document.querySelectorAll('.ex:checked')].map(c=>c.value)},
         instructions:$('#i').value.slice(0,2000),expected:done.length,files:done,log:[{t:Date.now(),m:'Request received'}]});
       if(error)throw error;
-      localStorage['pd_last_'+SHOP]=JSON.stringify({number,token});
+      localStorage['pd_last_'+SHOP_ID]=JSON.stringify({number,token});
       show('<div class="card"><h2>Request Submitted Successfully</h2><p>Your request number:</p><h1>'+E(number)+'</h1><p class="muted">Keep this number. You can check your order status on this page at any time.</p><button onclick="location.reload()">Done</button></div>');
     }catch(e){busy=false;$('#go').disabled=false;$('#go').textContent='Submit printing request';files.forEach(f=>{if(f.state!=='sent')f.state='ready'});er.textContent='Could not submit: '+(e.message||'connection problem')+'. Please try again.';list()}
   }
@@ -206,9 +221,9 @@ function customer(){
 let CACHE=[],primed=false,sig='';
 const norm=o=>({...o,created:+new Date(o.created),updated:+new Date(o.updated),files:o.files||[],log:o.log||[]});
 const allO=async()=>CACHE,getO=async id=>CACHE.find(o=>o.id===id);
-const putO=async o=>{const {error}=await sb.from('orders').update({status:o.status,files:o.files.map(f=>({name:f.name,size:f.size,path:f.path})),log:o.log,updated:new Date().toISOString()}).eq('id',o.id);
+const putO=async o=>{const {error}=await sb.from('orders').update({status:o.status,files:o.files.map(f=>({name:f.name,size:f.size,path:f.path})),log:o.log,updated:new Date().toISOString()}).eq('id',o.id).eq('shop_id',CURRENT_SHOP_ID);
   if(error){alert('Could not save: '+error.message);throw error}const i=CACHE.findIndex(x=>x.id===o.id);if(i>=0)CACHE[i]=o};
-async function sync(){const {data,error}=await sb.from('orders').select('*').order('created',{ascending:false});
+async function sync(){const {data,error}=await sb.from('orders').select('*').eq('shop_id',CURRENT_SHOP_ID).order('created',{ascending:false});
   if(error){console.error(error);peerOK=false;peerMsg='Offline - retrying';live();return null}
   const fresh=data.map(norm),old=new Set(CACHE.map(o=>o.id));
   fresh.forEach(o=>{const p=CACHE.find(x=>x.id===o.id);if(p)o.files.forEach((f,i)=>{if(p.files[i]&&p.files[i].path===f.path)f.blob=p.files[i].blob})});
@@ -216,27 +231,90 @@ async function sync(){const {data,error}=await sb.from('orders').select('*').ord
 async function poll(){const a=await sync();if(!a)return;
   if(a.length){unread+=a.length;beep();if('Notification'in window&&Notification.permission==='granted')a.forEach(o=>new Notification('New Printing Request',{body:o.number+' - '+o.customer.name}))}
   const g=JSON.stringify(CACHE.map(o=>[o.id,o.status,o.files.length,o.updated]));if(g!==sig){sig=g;refresh()}}
-async function loadCfg(){const {data}=await sb.from('settings').select('data').eq('id',1).maybeSingle();if(data&&data.data)localStorage.pd_cfg=JSON.stringify(data.data)}
+async function loadCfg(){
+  const {data,error}=await sb.from('settings').select('data').eq('shop_id',CURRENT_SHOP_ID).maybeSingle();
+  if(error)throw error;
+  CURRENT_CFG={...DEF,...((data&&data.data)||{}),shop_name:CURRENT_SHOP.shop_name||((data&&data.data)||{}).shop_name||DEF.shop_name};
+  CURRENT_CFG.extras=svc(CURRENT_CFG);
+}
 async function blobOf(f){if(!f.blob){const {data,error}=await sb.storage.from('uploads').download(f.path);if(error)throw error;f.blob=data}return f.blob}
 const log=(o,msg)=>{o.log.unshift({t:Date.now(),m:msg})};
 let view='orders',unread=0,peerOK=false,peerMsg='Connecting...';
-localStorage.removeItem('pd_open');const shopOpen=()=>true;
-let wl;const keepAwake=async()=>{try{wl=await navigator.wakeLock.request('screen')}catch{}};document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&SHOP===null)keepAwake()});
+const shopOpen=()=>true;
+let wl;const keepAwake=async()=>{try{wl=await navigator.wakeLock.request('screen')}catch{}};document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&SHOP_ID===null)keepAwake()});
 const live=()=>{const d=$('#dot');if(!d)return;const o=shopOpen();d.innerHTML='<span class="dot'+(peerOK&&o?' on':'')+'" style="'+(peerOK&&!o?'background:#f5b800':'')+'"></span>'+(!peerOK?peerMsg:o?'Receiving requests':'Closed to customers')};
 const swUI=()=>{const w=$('#sw');if(w){const o=shopOpen();w.setAttribute('aria-checked',o);w.classList.toggle('on',o);$('#swt').textContent=o?'Open':'Closed'}};
 
+function authScreen(mode='login',message=''){
+  const login=mode==='login';
+  $('#app').innerHTML='<div class="card" style="max-width:500px;margin:40px auto"><div class="tabs" style="margin-top:0"><button id="tabLogin" aria-current="'+(login?'page':'false')+'">Shop Login</button><button id="tabReg" aria-current="'+(!login?'page':'false')+'">Register New Shop</button></div><div id="authbox"></div></div>';
+  const render=()=>{const reg=$('#tabReg').getAttribute('aria-current')==='page';
+    $('#authbox').innerHTML='<h1 style="margin-top:18px">'+(reg?'Register New Shop':'Shop Login')+'</h1><p class="muted">'+(reg?'Create your own isolated PrintDesk shop.':'Sign in to your shop dashboard.')+'</p>'+
+      (reg?'<label for="sn">Shop Name</label><input id="sn" autocomplete="organization" placeholder="e.g. City Print & Copy">':'')+
+      '<label for="em">Email</label><input id="em" type="email" autocomplete="email">'+
+      '<label for="pw">Password</label><input id="pw" type="password" autocomplete="'+(reg?'new-password':'current-password')+'">'+
+      (reg?'<label for="pw2">Confirm Password</label><input id="pw2" type="password" autocomplete="new-password">':'')+
+      '<div class="err" id="er" role="alert">'+E(message)+'</div><button id="ok">'+(reg?'Create Shop':'Sign in')+'</button>';
+    $('#ok').onclick=reg?registerShop:loginShop;
+    $('#authbox').querySelectorAll('input').forEach(i=>i.onkeydown=e=>{if(e.key==='Enter')$('#ok').click()});
+  };
+  $('#tabLogin').onclick=()=>{authScreen('login')};
+  $('#tabReg').onclick=()=>{authScreen('register')};
+  render();
+}
+async function registerShop(){
+  const er=$('#er'),shopName=$('#sn').value.trim(),email=$('#em').value.trim().toLowerCase(),pw=$('#pw').value,pw2=$('#pw2').value;
+  if(shopName.length<2)return er.textContent='Enter a valid shop name.';
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return er.textContent='Enter a valid email address.';
+  if(pw.length<6)return er.textContent='Password must be at least 6 characters.';
+  if(pw!==pw2)return er.textContent='Passwords do not match.';
+  $('#ok').disabled=true;$('#ok').textContent='Creating shop...';
+  const shopId=makeShopId(shopName);
+  const {data,error}=await sb.auth.signUp({email,password:pw,options:{data:{shop_name:shopName,shop_id:shopId}}});
+  if(error){$('#ok').disabled=false;$('#ok').textContent='Create Shop';return er.textContent=error.message}
+  if(!data.user){$('#ok').disabled=false;return er.textContent='Supabase did not return a user. Please try again.'}
+  if(data.session){
+    const r=await ensureShop(data.user,shopName,shopId);
+    if(r.error){$('#ok').disabled=false;$('#ok').textContent='Create Shop';return er.textContent=r.error.message}
+    await bootAdmin();return;
+  }
+  er.style.color='var(--g)';
+  er.textContent='Account created. Check your email if confirmation is enabled, then return here and sign in. Your shop identity is saved with your account.';
+  $('#ok').disabled=false;$('#ok').textContent='Create Shop';
+}
+async function ensureShop(user,requestedName='',requestedId=''){
+  const {data:existing,error:fe}=await sb.from('shops').select('id,shop_name,owner_email,auth_user_id,created_at').eq('auth_user_id',user.id).maybeSingle();
+  if(fe)return {error:fe};
+  if(existing){CURRENT_SHOP=existing;CURRENT_SHOP_ID=existing.id;return {shop:existing}};
+  const name=(requestedName||user.user_metadata?.shop_name||'My Print Shop').trim();
+  let id=requestedId||user.user_metadata?.shop_id||makeShopId(name);
+  const {data:created,error}=await sb.from('shops').insert({id,shop_name:name,owner_email:user.email||'',auth_user_id:user.id}).select('id,shop_name,owner_email,auth_user_id,created_at').single();
+  if(error)return {error};
+  CURRENT_SHOP=created;CURRENT_SHOP_ID=created.id;return {shop:created};
+}
+async function loginShop(){
+  const er=$('#er'),email=$('#em').value.trim().toLowerCase(),pw=$('#pw').value;
+  if(!email||!pw)return er.textContent='Enter your email and password.';
+  $('#ok').disabled=true;$('#ok').textContent='Signing in...';
+  const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){$('#ok').disabled=false;$('#ok').textContent='Sign in';return er.textContent=error.message}
+  const r=await ensureShop(data.user);
+  if(r.error){await sb.auth.signOut();$('#ok').disabled=false;$('#ok').textContent='Sign in';return er.textContent='Signed in, but this account is not authorized for a shop: '+r.error.message}
+  await bootAdmin();
+}
+async function bootAdmin(){
+  $('#app').innerHTML='<div class="card">Loading your shop...</div>';
+  try{await loadCfg();CACHE=[];primed=false;sig='';await sync();shell();go('orders');setInterval(poll,5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()})}
+  catch(e){console.error(e);$('#app').innerHTML='<div class="card"><h2>Could not load shop data</h2><p class="muted">'+E(e.message||'Check your Supabase tables and RLS policies.')+'</p><button onclick="location.reload()">Try again</button></div>'}
+}
 async function admin(){
   const app=$('#app');
-  const form=(title,sub,fields,btn,fn)=>{app.innerHTML='<div class="card" style="max-width:440px;margin:40px auto"><h1>'+title+'</h1><p class="muted">'+sub+'</p>'+fields.map(f=>'<label for="'+f[0]+'">'+f[1]+'</label><input id="'+f[0]+'" type="'+(f[2]||'text')+'">').join('')+'<div class="err" id="er" role="alert"></div><button id="ok">'+btn+'</button></div>';
-    $('#ok').onclick=async()=>{const r=await fn(Object.fromEntries(fields.map(f=>[f[0],$('#'+f[0]).value])));if(r)$('#er').textContent=r};
-    app.querySelectorAll('input').forEach(i=>i.onkeydown=e=>{if(e.key==='Enter')$('#ok').click()})};
-  if(!sb)return form('Connect your cloud storage','Paste the Project URL and the public (anon / publishable) key from your Supabase project.',[['u','Project URL (https://xxxx.supabase.co)'],['k','Public key']],'Save',async b=>{
-    if(!/^https:\/\/\S+$/.test(b.u.trim())||b.k.trim().length<20)return'Enter the Project URL and the public key from Supabase.';
-    localStorage.pd_u=b.u.trim().replace(/\/$/,'');localStorage.pd_k=b.k.trim();location.reload()});
+  if(!sb)return app.innerHTML='<div class="card" style="max-width:500px;margin:40px auto"><h1>Connect Supabase</h1><p class="muted">Add your Supabase Project URL and public publishable/anon key in the source code.</p></div>';
   const {data:{session}}=await sb.auth.getSession();
-  if(!session)return form('Shop login','Sign in with the owner email and password you created in Supabase.',[['em','Email','email'],['pw','Password','password']],'Sign in',async b=>{
-    const {error}=await sb.auth.signInWithPassword({email:b.em.trim(),password:b.pw});if(error)return error.message;admin()});
-  await loadCfg();await sync();shell();go('orders');setInterval(poll,5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll()});
+  if(!session)return authScreen('login');
+  const r=await ensureShop(session.user);
+  if(r.error){await sb.auth.signOut();return authScreen('login','This account is authenticated but has no accessible shop record. '+r.error.message)}
+  await bootAdmin();
 }
 const badge=()=>{const b=$('#ub');if(b){b.textContent=unread;b.hidden=!unread}};
 function shell(){
@@ -263,7 +341,7 @@ async function orders(){
   $('#clr').onclick=async()=>{const d=CACHE.filter(o=>/^(completed|rejected|cancelled)$/.test(o.status));if(!d.length)return alert('No finished orders to clear.');
     if(!confirm('Delete '+d.length+' finished order(s) (completed, rejected, cancelled) and their files from cloud storage? This cannot be undone.'))return;
     const paths=d.flatMap(o=>o.files.map(f=>f.path));if(paths.length)await sb.storage.from('uploads').remove(paths);
-    const {error}=await sb.from('orders').delete().in('id',d.map(o=>o.id));if(error)return alert('Could not clear: '+error.message);await sync();refresh()};
+    const {error}=await sb.from('orders').delete().in('id',d.map(o=>o.id)).eq('shop_id',CURRENT_SHOP_ID);if(error)return alert('Could not clear: '+error.message);await sync();refresh()};
   stats();let t;$('#q').oninput=()=>{clearTimeout(t);t=setTimeout(orders,250)};$('#s').onchange=orders;
   document.querySelectorAll('[data-id]').forEach(a=>a.onclick=e=>{e.preventDefault();detail(a.dataset.id)});
 }
@@ -289,7 +367,7 @@ async function detail(id){
   if($('#rm'))$('#rm').onclick=()=>{if(confirm('Delete all files of this order from cloud storage? This cannot be undone.')){sb.storage.from('uploads').remove(o.files.map(f=>f.path));o.files=[];log(o,'Files deleted');save()}};
 }
 function qr(){
-  const c=CFG(),url=BASE+'?shop=1'+(SBC.url?'':'&u='+encodeURIComponent(SB_URL)+'&k='+encodeURIComponent(SB_KEY)),l=safeImg(c.logo);
+  const c=CFG(),url=BASE+'?shop='+encodeURIComponent(CURRENT_SHOP_ID)+(SBC.url?'':'&u='+encodeURIComponent(SB_URL)+'&k='+encodeURIComponent(SB_KEY)),l=safeImg(c.logo);
   $('#v').innerHTML='<div class="card center" id="qrcard">'+(l?'<img src="'+l+'" alt="" style="height:64px;max-width:200px;object-fit:contain">':'')+'<h1>'+E(c.shop_name)+'</h1><h2>Scan to send your printing</h2><div id="qrc" style="display:inline-block"></div><p><b>Scan • Upload • Submit</b></p>'+(c.address?'<p class="muted">'+E(c.address)+'</p>':'')+(c.phone?'<p class="muted">'+E(c.phone)+'</p>':'')+(c.hours?'<p class="muted">'+E(c.hours)+'</p>':'')+'</div><div class="card"><div class="btns"><button id="pr">Print QR card</button><button class="sec" id="cp">Copy customer link</button></div><p class="muted" style="overflow-wrap:anywhere">'+E(url)+'</p><p class="muted">Customers can send requests at any time, even when this page is closed. Orders appear here when you open it.</p></div>';
   if(window.QRCode)new QRCode($('#qrc'),{text:url,width:240,height:240});else $('#qrc').textContent='QR library could not load (check internet).';
   $('#pr').onclick=()=>print();$('#cp').onclick=async()=>{try{await navigator.clipboard.writeText(url);$('#cp').textContent='Copied'}catch{$('#cp').textContent='Copy failed'}};
@@ -308,10 +386,10 @@ function settings(){
   $('#sv').onclick=()=>{const g=k=>$('#'+k).value.trim(),mb=+g('max_mb'),er=$('#er');er.style.color='';
     if(!g('shop_name'))return er.textContent='Enter your shop name.';if(!(mb>0&&mb<=50))return er.textContent='Max file size must be between 1 and 50 MB.';
     const b={shop_name:g('shop_name'),welcome:g('welcome'),phone:g('phone'),whatsapp:g('whatsapp'),address:g('address'),hours:g('hours'),logo,cc:dg(g('cc')),max_mb:String(mb),extras:$('#extras').value.split('\n').map(x=>x.trim()).filter(Boolean).join('\n')};
-    er.textContent='Saving...';sb.from('settings').upsert({id:1,data:b}).then(({error})=>{if(error)return er.textContent='Could not save: '+error.message;localStorage.pd_cfg=JSON.stringify(b);shell();go('settings');$('#er').style.color='var(--g)';$('#er').textContent='Settings saved.'})};
+    er.textContent='Saving...';Promise.all([sb.from('settings').upsert({shop_id:CURRENT_SHOP_ID,data:b},{onConflict:'shop_id'}),sb.from('shops').update({shop_name:b.shop_name}).eq('id',CURRENT_SHOP_ID).eq('auth_user_id',CURRENT_SHOP.auth_user_id)]).then(([sr,qr])=>{const error=sr.error||qr.error;if(error)return er.textContent='Could not save: '+error.message;CURRENT_SHOP.shop_name=b.shop_name;CURRENT_CFG={...b};CURRENT_CFG.extras=svc(CURRENT_CFG);shell();go('settings');$('#er').style.color='var(--g)';$('#er').textContent='Settings saved.'});};
 }
 
-SHOP?customer():admin();
+SHOP_ID?customer():admin();
 </script>
 </body>
 </html>
