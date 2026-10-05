@@ -145,12 +145,14 @@ function customer(){
   if(!SHOP_ID)return show('<div class="card"><h2>Shop link required</h2><p class="muted">Please scan the shop QR code or open this page with a valid <b>?shop=SHOP_ID</b> link.</p></div>');
   show('<div class="card">Loading shop...</div>');
   (async()=>{try{
-    const {data:shop,error:se}=await sb.from('shops').select('id,shop_name,auth_user_id,created_at').eq('id',SHOP_ID).maybeSingle();
+    const {data:shopRows,error:se}=await sb.rpc('get_public_shop',{p_shop_id:SHOP_ID});
+    const shop=Array.isArray(shopRows)?shopRows[0]:shopRows;
     if(se)throw se;if(!shop)throw new Error('This shop link is invalid or the shop no longer exists.');
     CURRENT_SHOP=shop;CURRENT_SHOP_ID=shop.id;
-    const {data:st,error:ste}=await sb.from('settings').select('data').eq('shop_id',shop.id).maybeSingle();
-    if(ste&&ste.code!=='PGRST116')throw ste;
-    cfg={...DEF,...((st&&st.data)||{}),shop_name:shop.shop_name||((st&&st.data)||{}).shop_name||DEF.shop_name};cfg.extras=svc(cfg);CURRENT_CFG=cfg;form()
+    const {data:st,error:ste}=await sb.rpc('get_public_settings',{p_shop_id:shop.id});
+    if(ste)throw ste;
+    const stData=Array.isArray(st)?(st[0]?.data||{}):(st?.data||{});
+    cfg={...DEF,...stData,shop_name:shop.shop_name||stData.shop_name||DEF.shop_name};cfg.extras=svc(cfg);CURRENT_CFG=cfg;form()
   }catch(e){console.error(e);show('<div class="card"><h2>Could not load this shop</h2><p class="muted">'+E(e.message||'Check your internet connection and shop link.')+'</p><button onclick="location.reload()">Try again</button></div>')}})();
   function form(){
     document.title=cfg.shop_name+' - Print Request';
